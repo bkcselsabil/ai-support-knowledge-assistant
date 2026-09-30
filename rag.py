@@ -60,7 +60,13 @@ def prepare_chunks(documents):
         filename = document["filename"]
 
         for chunk in chunks:
-            chunk_data.append({"text": chunk, "document": filename})
+            
+            if filename == "employee_handbook.txt":
+                category = "HR"
+            else:
+                category = "Company Policy"
+                
+            chunk_data.append({"text": chunk, "document": filename, "category": category})
     return chunk_data
 
 
@@ -78,7 +84,7 @@ def create_vector_database(chunk_data):
     ids = [str(i) for i in range(len(chunk_data))]
 
     documents = [item["text"] for item in chunk_data]
-    metadata = [{"document": item["document"]} for item in chunk_data]
+    metadata = [{"document": item["document"], "category" : item["category"]} for item in chunk_data]
     collection.add(ids=ids, documents=documents, metadatas=metadata)
 
     return collection
@@ -87,13 +93,30 @@ def create_vector_database(chunk_data):
 collection = create_vector_database(chunk_data)
 
 
-def retrieve_documents(collection, question, threshold=0.7):
-    results = collection.query(query_texts=[question], n_results=2)
+def retrieve_documents(collection, question, threshold=0.7, document_name=None, category= None):
+    where_filter = {}
+
+    if document_name:
+        where_filter["document"] = document_name
+
+    if category:
+        where_filter["category"] = category
+    
+    
+    results = collection.query(
+        query_texts=[question],
+        n_results=4,
+        where=where_filter if where_filter else None
+    )
 
     distances = results["distances"][0]
     documents = results["documents"][0]
     metadata = results["metadatas"][0]
 
+    # for document, distance, meta in zip(documents, distances, metadata):
+    #     print("Distance:", distance)
+    #     print("Document:", meta["document"])
+    #     print()
     relevant_results = []
 
     for document, distance, meta in zip(documents, distances, metadata):
@@ -130,8 +153,9 @@ def generate_answer(question, relevant_results):
 
 
 question = input("Ask a question:")
-relevant_results = retrieve_documents(collection, question)
-print("Retrieved",len(relevant_results), "document(s)")
+category = input(" Category (HR / Company Policy / press Enter for all):").strip()
+relevant_results = retrieve_documents(collection, question, category= category if category else None)
+print("Retrieved", len(relevant_results), "document(s)")
 
 if not relevant_results:
     print("I don't have enough information to answer this question.")
