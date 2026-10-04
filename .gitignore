@@ -3,3 +3,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+.vscode/
+tempCodeRunnerFile.py
+tool_calling.py
