@@ -119,10 +119,9 @@ tools = [
 ]
 
 
-def main():
-    question = input("You: ")
-
+def run_agent(question):
     messages = [{"role": "user", "content": question}]
+
     while True:
         response = client.messages.create(
             model="claude-sonnet-4-5", max_tokens=500, tools=tools, messages=messages
@@ -137,19 +136,23 @@ def main():
                 break
 
         if tool_use is None:
-            print("Claude", response.content[0].text)
-            break
+            return response.content[0].text
+            
         print("Selected tool:", tool_use.name)
         print("Input:", tool_use.input)
         result = execute_tool(tool_use)
         print("Tool result:", result)
         tool_result = {
-            "type": "tool_result",
-            "tool_use_id": tool_use.id,
-            "content": str(result),
-        }
+                "type": "tool_result",
+                "tool_use_id": tool_use.id,
+                "content": str(result),
+            }
         messages.append({"role": "user", "content": [tool_result]})
 
 
+def main():
+    question = input("You: ")
+    answer = run_agent(question)
+    print("Claude", answer)
 if __name__ == "__main__":
     main()

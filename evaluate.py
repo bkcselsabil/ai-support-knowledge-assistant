@@ -1,4 +1,4 @@
-
+from agent import run_agent
 from rag import retrieve_documents, generate_answer, collection
 
 
@@ -60,3 +60,45 @@ for test in test_cases:
     print("Answer:", "PASS" if answer_passed else "FAIL")
     print("Result:", "PASS" if passed else "FAIL")
 print(f"\nPassed: {passed_tests}/{len(test_cases)}")
+
+
+
+agent_passed = 0
+print("\n--- Agent Test ---")
+
+question = "What is 25 + 17?"
+expected_answer = "42"
+
+answer = run_agent(question)
+
+passed = expected_answer in answer
+if passed:
+    agent_passed += 1
+
+print("Question:", question)
+print("Expected:", expected_answer)
+print("Actual:", answer)
+print("Result:", "PASS" if passed else "FAIL")
+print(f"\nPassed: {passed_tests}/{len(test_cases)}")
+
+
+print("\n--- Agent Multi-Step Test ---")
+
+question = (
+    "An employee has already taken 12 vacation days. "
+    "How many vacation days do they have left?"
+)
+
+expected_fact = "18"
+
+answer = run_agent(question)
+
+passed = expected_fact in answer
+if passed:
+    agent_passed += 1
+
+print("Question:", question)
+print("Expected:", expected_fact)
+print("Actual:", answer)
+print("Result:", "PASS" if passed else "FAIL")
+print(f"\nAgent tests passed: {agent_passed}/2")
