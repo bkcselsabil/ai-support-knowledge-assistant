@@ -22,7 +22,13 @@ def subtract_numbers(a, b):
 
 
 def divide_numbers(a, b):
-    return a / b
+    try:
+        result = a / b
+
+    except ZeroDivisionError:
+        return "Cannot divide by zero."
+    else:
+        return result
 
 
 def search_knowledge(question):
@@ -124,7 +130,20 @@ def run_agent(question):
 
     while True:
         response = client.messages.create(
-            model="claude-sonnet-4-5", max_tokens=500, tools=tools, messages=messages
+            model="claude-sonnet-4-5",
+            max_tokens=500,
+            system="""
+You are a company support assistant.
+
+Use the available tools when you need information from the company knowledge base.
+
+If the knowledge base does not contain the requested information,
+say clearly that the information was not found.
+
+Do not invent company policies or facts.
+""",
+            tools=tools,
+            messages=messages,
         )
 
         messages.append({"role": "assistant", "content": response.content})
@@ -137,16 +156,16 @@ def run_agent(question):
 
         if tool_use is None:
             return response.content[0].text
-            
+
         print("Selected tool:", tool_use.name)
         print("Input:", tool_use.input)
         result = execute_tool(tool_use)
         print("Tool result:", result)
         tool_result = {
-                "type": "tool_result",
-                "tool_use_id": tool_use.id,
-                "content": str(result),
-            }
+            "type": "tool_result",
+            "tool_use_id": tool_use.id,
+            "content": str(result),
+        }
         messages.append({"role": "user", "content": [tool_result]})
 
 
@@ -154,5 +173,7 @@ def main():
     question = input("You: ")
     answer = run_agent(question)
     print("Claude", answer)
+
+
 if __name__ == "__main__":
     main()
