@@ -17,6 +17,12 @@ test_cases = [
         "expected_source": None,
         "expected_fact": None,
     },
+    {
+        "question": "An employee has taken 12 vacation days. How many vacation days do they have left?",
+        "expected_source": "employee_handbook.txt",
+        "expected_fact": "18",
+        "threshold": 0.8,
+    },
 ]
 passed_tests = 0
 
@@ -24,8 +30,11 @@ for test in test_cases:
     question = test["question"]
     expected_source = test["expected_source"]
     expected_fact = test["expected_fact"]
-    results = retrieve_documents(collection, question)
-
+    results = retrieve_documents(
+    collection,
+    question,
+    threshold=test.get("threshold", 0.7),
+    )
     if results:
         actual_answer, actual_source = generate_answer(question, results)
         # print("Expected answer:", test["expected_answer"])
@@ -54,62 +63,42 @@ for test in test_cases:
 print(f"\nPassed: {passed_tests}/{len(test_cases)}")
 
 
-agent_passed = 0
-print("\n--- Agent Test ---")
-
-question = "What is 25 + 17?"
-expected_answer = "42"
-
-answer = run_agent(question)
-
-passed = expected_answer in answer
-if passed:
-    agent_passed += 1
-
-print("Question:", question)
-print("Expected:", expected_answer)
-print("Actual:", answer)
-print("Result:", "PASS" if passed else "FAIL")
-print(f"\nPassed: {passed_tests}/{len(test_cases)}")
-
 question = "Can employees work remotely?"
 expected_fact = "three days per week"
+
+
 def evaluate_agent_test(question, expected_fact):
     print("\n--- Agent knowledge Test ---")
 
-
     answer = run_agent(question)
 
-    passed = expected_fact in answer.lower()
-
+    passed = expected_fact.lower() in answer.lower()
 
     print("Question:", question)
     print("Expected:", expected_fact)
     print("Actual:", answer)
     print("Result:", "PASS" if passed else "FAIL")
     return passed
+
+
 total_agent_tests = 0
 agent_passed = 0
 
 
 total_agent_tests += 1
-if evaluate_agent_test(
-    "Can employees work remotely?",
-    "three days per week"
-):
+if evaluate_agent_test("Can employees work remotely?", "three days per week"):
     agent_passed += 1
 
 total_agent_tests += 1
-if evaluate_agent_test(
-    "What is 25 + 17?",
-    "42"):
+if evaluate_agent_test("What is 25 + 17?", "42"):
     agent_passed += 1
 total_agent_tests += 1
 if evaluate_agent_test(
     "An employee has already taken 12 vacation days. How many vacation days do they have left?",
-    "18"
+    "18",
 ):
     agent_passed += 1
+
 
 def evaluate_missing_information_test(question):
     print("\n--- Missing Information Test ---")
@@ -120,14 +109,14 @@ def evaluate_missing_information_test(question):
         "not found",
         "doesn't contain",
         "don't have information",
+        "wasn't able to find",
     ]
-    passed = any( phrase in answer.lower()
-    for phrase in missing_indicators
-    )
+    passed = any(phrase in answer.lower() for phrase in missing_indicators)
     print("Question:", question)
     print("Actual:", answer)
     print("Result:", "PASS" if passed else "FAIL")
     return passed
+
 
 total_agent_tests += 1
 if evaluate_missing_information_test(

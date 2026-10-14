@@ -6,3 +6,6 @@ venv/
 .vscode/
 tempCodeRunnerFile.py
 tool_calling.py
+.coverage
+.pytest_cache/
+htmlcov/
