@@ -29,7 +29,7 @@ test_cases = [
 },
     {
         "question": "An employee has taken 12 vacation days. How many vacation days do they have left?",
-        "expected_route": "rag",
+        "expected_route": "rag_then_calculate",
         "expected_fact": "18",
     },
 
@@ -45,8 +45,9 @@ for test in test_cases:
     })
 
     route_passed = result["route"] == test["expected_route"]
-    answer_passed = test["expected_fact"] in result["result"]
-
+    answer_passed = (
+    test["expected_fact"].lower() in result["result"].lower()
+    )
     passed = route_passed and answer_passed
 
     if passed:

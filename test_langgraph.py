@@ -281,6 +281,7 @@ def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
         "I couldn't find relevant information in the company documents."
     )
     assert mock_llm.with_structured_output.return_value.invoke.call_count == 2
+    mock_llm.invoke.assert_not_called()
 
 def test_assess_context_returns_true_when_context_is_sufficient(mocker):
     mock_llm = mocker.patch("langgraph_test.llm")
