@@ -1,6 +1,7 @@
 
 from rag import retrieve_documents, generate_answer, detect_category, main
 from types import SimpleNamespace
+import pytest
 
 
 def test_retrieve_documents_filters_by_threshold(mocker):
@@ -164,3 +165,25 @@ def test_main_when_documents_found(mocker, capsys):
         question,
         mock_retrieve.return_value,
     )
+
+
+
+@pytest.mark.parametrize(
+    "claude_response, expected_category",
+    [
+        ("Company Policy", "Company Policy"),
+        ("None", "None"),
+    ],
+)
+def test_detect_category_handles_other_categories(
+    mocker, claude_response, expected_category
+):
+    mock_anthropic = mocker.patch("rag.Anthropic")
+
+    mock_anthropic.return_value.messages.create.return_value.content = [
+        mocker.Mock(text=claude_response)
+    ]
+
+    result = detect_category("Can employees work remotely?")
+
+    assert result == expected_category
