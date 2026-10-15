@@ -23,11 +23,17 @@ class Calculation(BaseModel):
     number2: float
 
 
+class ContextAssessment(BaseModel):
+    sufficient: bool
+    reason: str
+
+
 class State(TypedDict):
     message: str
     result: str
     route: str
     context: NotRequired[str]
+    context_sufficient: NotRequired[bool]
 
 def llm_router(state: State):
     response = llm.with_structured_output(RouteDecision).invoke(f"""
@@ -99,6 +105,25 @@ def retrieve_context_node(state: State):
     return {"context": context}
 
 
+def assess_context_node(state: State):
+    question = state["message"]
+    context = state.get("context", "")
+
+    assessment = llm.with_structured_output(ContextAssessment).invoke(
+        f"""Determine whether the context contains all facts needed
+        to answer the question accurately.
+
+        Do not assume missing facts or use outside knowledge.
+        If a required fact is missing, mark the context insufficient.
+
+        Question: {question}
+
+        Context: {context}
+        """
+    )
+
+    return {"context_sufficient": assessment.sufficient}
+
 def missing_context_node(state: State):
     return {
         "result": "I couldn't find relevant information in the company documents."
@@ -150,6 +175,7 @@ graph.add_node("retrieve_context", retrieve_context_node)
 graph.add_node("rag", rag_node)
 graph.add_node("calculator", calculator_node)
 graph.add_node("missing_context", missing_context_node)
+graph.add_node("assess_context", assess_context_node)
 graph.add_edge(START, "router")
 
 graph.add_conditional_edges(
@@ -164,7 +190,17 @@ graph.add_conditional_edges(
 graph.add_conditional_edges(
     "retrieve_context",
     lambda state: (
-        "calculator" if state.get("context") else "missing_context"
+        "assess_context" if state.get("context") else "missing_context"
+    ),
+    {
+        "assess_context": "assess_context",
+        "missing_context": "missing_context",
+    },
+)
+graph.add_conditional_edges(
+    "assess_context",
+    lambda state: (
+        "calculator" if state.get("context_sufficient") else "missing_context"
     ),
     {
         "calculator": "calculator",

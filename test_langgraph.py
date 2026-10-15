@@ -163,15 +163,22 @@ def test_graph_retrieves_context_then_calculates(mocker):
     # Simulate the router selecting the multi-step route,
     # followed by Claude extracting 30 - 12.
     router_response = SimpleNamespace(route="rag_then_calculate")
+
+    assessment_response = SimpleNamespace(
+    sufficient=True,
+    reason="The context contains the annual vacation allowance.",
+    )
+
     calculation_response = SimpleNamespace(
-        number1=30,
-        operation="subtract",
-        number2=12,
+    number1=30,
+    operation="subtract",
+    number2=12,
     )
 
     mock_llm.with_structured_output.return_value.invoke.side_effect = [
-        router_response,
-        calculation_response,
+    router_response,
+    assessment_response,
+    calculation_response,
     ]
 
     # First retrieval fails; the retry finds the vacation policy.
@@ -236,3 +243,41 @@ def test_multi_step_returns_fallback_when_no_documents(mocker):
     )
     assert mock_retrieve.call_count == 2
     assert mock_llm.with_structured_output.return_value.invoke.call_count == 1
+
+def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
+    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+
+    router_response = SimpleNamespace(route="rag_then_calculate")
+
+    assessment_response = SimpleNamespace(
+    sufficient=False,
+    reason="The context does not contain the annual vacation allowance.",
+)
+
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+    router_response,
+    assessment_response,
+]
+
+    mock_retrieve.return_value = [
+        {
+            "text": "Employees submit vacation requests through the HR portal.",
+            "distance": 0.5,
+            "metadata": {"document": "employee_handbook.txt"},
+        }
+    ]
+
+    result = app.invoke({
+        "message": (
+            "An employee has taken 12 vacation days. "
+            "How many vacation days do they have left?"
+        ),
+        "result": "",
+        "route": "",
+    })
+
+    assert result["result"] == (
+        "I couldn't find relevant information in the company documents."
+    )
+    assert mock_llm.with_structured_output.return_value.invoke.call_count == 2
