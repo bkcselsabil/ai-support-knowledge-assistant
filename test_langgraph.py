@@ -1,5 +1,5 @@
 import pytest
-from langgraph_test import app, llm_router
+from langgraph_test import app, llm_router, assess_context_node
 from types import SimpleNamespace
 
 
@@ -281,3 +281,41 @@ def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
         "I couldn't find relevant information in the company documents."
     )
     assert mock_llm.with_structured_output.return_value.invoke.call_count == 2
+
+def test_assess_context_returns_true_when_context_is_sufficient(mocker):
+    mock_llm = mocker.patch("langgraph_test.llm")
+
+    mock_llm.with_structured_output.return_value.invoke.return_value = (
+        SimpleNamespace(
+            sufficient=True,
+            reason="The annual vacation allowance is stated.",
+        )
+    )
+
+    result = assess_context_node({
+        "message": "How many vacation days remain after taking 12?",
+        "result": "",
+        "route": "rag_then_calculate",
+        "context": "Employees receive 30 days of annual vacation.",
+    })
+
+    assert result["context_sufficient"] is True
+
+def test_assess_context_returns_false_when_context_is_insufficient(mocker):
+    mock_llm = mocker.patch("langgraph_test.llm")
+
+    mock_llm.with_structured_output.return_value.invoke.return_value = (
+        SimpleNamespace(
+            sufficient=False,
+            reason="The annual vacation allowance is missing.",
+        )
+    )
+
+    result = assess_context_node({
+        "message": "How many vacation days remain after taking 12?",
+        "result": "",
+        "route": "rag_then_calculate",
+        "context": "Employees submit vacation requests through the HR portal.",
+    })
+
+    assert result["context_sufficient"] is False
