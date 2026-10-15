@@ -154,3 +154,85 @@ def test_rag_retries_with_higher_threshold(mocker):
     assert "18" in result["result"]
     assert mock_retrieve.call_count == 2
     assert mock_retrieve.call_args_list[1].kwargs["threshold"] == 0.8
+
+
+def test_graph_retrieves_context_then_calculates(mocker):
+    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+
+    # Simulate the router selecting the multi-step route,
+    # followed by Claude extracting 30 - 12.
+    router_response = SimpleNamespace(route="rag_then_calculate")
+    calculation_response = SimpleNamespace(
+        number1=30,
+        operation="subtract",
+        number2=12,
+    )
+
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+        router_response,
+        calculation_response,
+    ]
+
+    # First retrieval fails; the retry finds the vacation policy.
+    mock_retrieve.side_effect = [
+        [],
+        [
+            {
+                "text": "Employees receive 30 days of annual vacation.",
+                "distance": 0.7625,
+                "metadata": {"document": "employee_handbook.txt"},
+            }
+        ],
+    ]
+
+    result = app.invoke({
+        "message": (
+            "An employee has taken 12 vacation days. "
+            "How many vacation days do they have left?"
+        ),
+        "result": "",
+        "route": "",
+    })
+
+    assert result["route"] == "rag_then_calculate"
+    assert "30 days of annual vacation" in result["context"]
+    assert result["result"] == "18"
+    assert mock_retrieve.call_count == 2
+    assert mock_retrieve.call_args_list[1].kwargs["threshold"] == 0.8
+
+
+def test_multi_step_returns_fallback_when_no_documents(mocker):
+    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+
+    router_response = SimpleNamespace(route="rag_then_calculate")
+    calculation_response = SimpleNamespace(
+        number1=30,
+        operation="subtract",
+        number2=12,
+    )
+
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+        router_response,
+        calculation_response,
+    ]
+
+    # Neither retrieval attempt finds a document.
+    mock_retrieve.side_effect = [[], []]
+
+    result = app.invoke({
+        "message": (
+            "An employee has taken 12 vacation days. "
+            "How many vacation days do they have left?"
+        ),
+        "result": "",
+        "route": "",
+    })
+
+    assert result["route"] == "rag_then_calculate"
+    assert result["result"] == (
+        "I couldn't find relevant information in the company documents."
+    )
+    assert mock_retrieve.call_count == 2
+    assert mock_llm.with_structured_output.return_value.invoke.call_count == 1
