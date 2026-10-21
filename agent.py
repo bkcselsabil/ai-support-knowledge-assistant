@@ -1,5 +1,5 @@
 import os
-
+import json
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from rag import retrieve_documents, collection
@@ -31,14 +31,29 @@ def divide_numbers(a, b):
         return result
 
 
+
 def search_knowledge(question):
     result = retrieve_documents(collection, question)
+
     if result:
         text = result[0]["text"]
-        source = result[0]["metadata"]["document"]
-        return f"Information: {text}\nSource: {source}"
-    return "No relevant information found."
+        metadata = result[0]["metadata"]
+        source = {
+            "title": metadata.get("title", metadata["document"]),
+            "document": metadata["document"],
+            "url": metadata.get("url"),
+            "source": metadata.get("source", "local"),
+        }
 
+        return json.dumps({
+            "information": text,
+            "sources": [source],
+        })
+
+    return json.dumps({
+        "information": "No relevant information found.",
+        "sources": [],
+    })
 
 tool_functions = {
     "add_numbers": add_numbers,
@@ -127,6 +142,7 @@ tools = [
 
 def run_agent(question):
     messages = [{"role": "user", "content": question}]
+    sources = []
 
     while True:
         response = client.messages.create(
@@ -155,12 +171,22 @@ Do not invent company policies or facts.
                 break
 
         if tool_use is None:
-            return response.content[0].text
+            return {
+                "answer": response.content[0].text,
+                "sources": sources,
+            }
 
-        print("Selected tool:", tool_use.name)
-        print("Input:", tool_use.input)
         result = execute_tool(tool_use)
-        print("Tool result:", result)
+
+        if tool_use.name == "search_knowledge" and isinstance(result, str):
+            try:
+                tool_data = json.loads(result)
+                for source in tool_data.get("sources", []):
+                    if source not in sources:
+                        sources.append(source)
+            except json.JSONDecodeError:
+                pass
+
         tool_result = {
             "type": "tool_result",
             "tool_use_id": tool_use.id,
@@ -171,8 +197,14 @@ Do not invent company policies or facts.
 
 def main():
     question = input("You: ")
-    answer = run_agent(question)
-    print("Claude", answer)
+    result = run_agent(question)
+
+    print("Claude:", result["answer"])
+
+    if result["sources"]:
+        print("Sources:")
+        for source in result["sources"]:
+            print(f"- {source['title']} ({source['document']})")
 
 
 if __name__ == "__main__":

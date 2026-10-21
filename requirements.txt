@@ -4,3 +4,6 @@ chromadb
 requests
 beautifulsoup4
 langgraph
+fastapi
+uvicorn[standard]
+httpx
