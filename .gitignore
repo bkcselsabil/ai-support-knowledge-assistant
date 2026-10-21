@@ -1,11 +1,24 @@
+
+# Secrets and environment variables
 .env
-__pycache__/
-*.pyc
+.env.*
+!.env.example
+
+# Python virtual environments
 .venv/
 venv/
-.vscode/
-tempCodeRunnerFile.py
-tool_calling.py
-.coverage
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Test and coverage output
 .pytest_cache/
+.coverage
 htmlcov/
+
+# Editor settings
+.vscode/
+
+# Temporary files
+tempCodeRunnerFile.py

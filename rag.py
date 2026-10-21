@@ -6,6 +6,31 @@ from anthropic import Anthropic
 from dotenv import load_dotenv
 
 
+def initialize_rag():
+    # Load and chunk local documents
+    local_documents = load_documents()
+    local_chunks = prepare_chunks(local_documents)
+
+    # Fetch and filter Confluence pages
+    from confluence_ingestion import (
+        fetch_all_confluence_pages,
+        filter_confluence_pages,
+        prepare_confluence_chunks,
+        combine_chunks,
+    )
+
+    confluence_pages = fetch_all_confluence_pages("ASKB")
+    filtered_pages = filter_confluence_pages(confluence_pages)
+    confluence_chunks = prepare_confluence_chunks(filtered_pages)
+
+    # Combine local and Confluence chunks
+    combined_chunks = combine_chunks(local_chunks, confluence_chunks)
+
+    # Create the collection
+    collection = create_vector_database(combined_chunks)
+    return collection
+
+
 def load_documents():
     documents_folder = Path("documents")
 
@@ -20,9 +45,6 @@ def load_documents():
         documents.append({"text": text, "filename": file.name})
 
     return documents
-
-
-documents = load_documents()
 
 
 def chunk_document(text):
@@ -72,30 +94,36 @@ def prepare_chunks(documents):
     return chunk_data
 
 
-chunk_data = prepare_chunks(documents)
 
-
-def create_vector_database(chunk_data):
-
+def create_vector_database(chunk_data, collection_name="support_documents_v2",):
     import chromadb
 
     chroma_client = chromadb.Client()
-
-    collection = chroma_client.create_collection(name="support_documents_v2")
-
+    collection = chroma_client.get_or_create_collection(name=collection_name)
     ids = [str(i) for i in range(len(chunk_data))]
-
     documents = [item["text"] for item in chunk_data]
-    metadata = [
-        {"document": item["document"], "category": item["category"]}
-        for item in chunk_data
-    ]
-    collection.add(ids=ids, documents=documents, metadatas=metadata)
+
+    metadata = []
+    for item in chunk_data:
+        item_metadata = {
+            "document": item["document"],
+            "category": item["category"],
+        }
+
+        for field in ["source", "title", "page_id", "space_key", "url"]:
+            if item.get(field) is not None:
+                item_metadata[field] = item[field]
+
+        metadata.append(item_metadata)
+
+    collection.add(
+        ids=ids,
+        documents=documents,
+        metadatas=metadata,
+    )
 
     return collection
 
-
-collection = create_vector_database(chunk_data)
 
 
 def retrieve_documents(
@@ -134,6 +162,9 @@ def retrieve_documents(
     return relevant_results
 
 
+collection = initialize_rag()
+
+
 def generate_answer(question, relevant_results):
     context = "\n\n".join(result["text"] for result in relevant_results)
     load_dotenv()
@@ -148,14 +179,36 @@ def generate_answer(question, relevant_results):
                 "role": "user",
                 "content": f"""
         Answer the question using only the information provided below.
+        If the information does not answer the question, say so.
         Information: {context}
         Question:
-        {question} """,
+        {question}
+        """,
             }
         ],
     )
-    source = relevant_results[0]["metadata"]["document"]
-    return response.content[0].text, source
+
+    sources = []
+    seen_sources = set()
+
+    for result in relevant_results:
+        metadata = result["metadata"]
+        source_key = metadata.get("url") or metadata["document"]
+
+        if source_key not in seen_sources:
+            seen_sources.add(source_key)
+            sources.append({
+                "title": metadata.get("title", metadata["document"]),
+                "document": metadata["document"],
+                "url": metadata.get("url"),
+                "source": metadata.get("source", "local"),
+            })
+
+    if all(source["source"] == "local" for source in sources):
+        return response.content[0].text, sources[0]["document"]
+
+    return response.content[0].text, sources
+
 
 
 def detect_category(question):
@@ -198,10 +251,24 @@ def main ():
     if not relevant_results:
         print("I don't have enough information to answer this question.")
     else:
-        answer, source = generate_answer(question, relevant_results)
 
-        print("\nClaude", answer)
-        print("Source:", source)
+        answer, sources = generate_answer(question, relevant_results)
+
+        print("\nClaude:", answer)
+        print("Source:" if isinstance(sources, str) else "\nSources:")
+
+        if isinstance(sources, str):
+            # Backward compatibility with existing callers and tests
+            print("Source:", sources)
+        else:
+            for source in sources:
+                print("-", source["title"])
+
+                if source["url"]:
+                    print("  URL:", source["url"])
+                else:
+                    print("  Document:", source["document"])
+
 
 if __name__ == "__main__":
     main()

@@ -30,24 +30,37 @@ for test in test_cases:
     question = test["question"]
     expected_source = test["expected_source"]
     expected_fact = test["expected_fact"]
+
     results = retrieve_documents(
-    collection,
-    question,
-    threshold=test.get("threshold", 0.7),
+        collection,
+        question,
+        threshold=test.get("threshold", 0.7),
     )
+
     if results:
         actual_answer, actual_source = generate_answer(question, results)
-        # print("Expected answer:", test["expected_answer"])
-        # print("Actual answer:", actual_answer)
     else:
         actual_answer = None
         actual_source = None
-    source_passed = actual_source == expected_source
+
+    if expected_source is None:
+        source_passed = actual_source is None
+    elif isinstance(actual_source, list):
+        source_passed = any(
+            source["document"] == expected_source
+            for source in actual_source
+        )
+    else:
+        source_passed = actual_source == expected_source
 
     if expected_fact is None:
         answer_passed = actual_answer is None
     else:
-        answer_passed = expected_fact.lower() in actual_answer.lower()
+        answer_passed = (
+            actual_answer is not None
+            and expected_fact.lower() in actual_answer.lower()
+        )
+
     passed = source_passed and answer_passed
 
     if passed:
@@ -60,6 +73,7 @@ for test in test_cases:
     print("Source:", "PASS" if source_passed else "FAIL")
     print("Answer:", "PASS" if answer_passed else "FAIL")
     print("Result:", "PASS" if passed else "FAIL")
+
 print(f"\nPassed: {passed_tests}/{len(test_cases)}")
 
 
