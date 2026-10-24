@@ -32,27 +32,34 @@ def divide_numbers(a, b):
 
 
 
-def search_knowledge(question):
-    result = retrieve_documents(collection, question)
 
-    if result:
-        text = result[0]["text"]
-        metadata = result[0]["metadata"]
-        source = {
+def search_knowledge(question):
+    results = retrieve_documents(collection, question, threshold=0.7)
+
+    if not results:
+        return json.dumps({
+            "information": "No relevant information found.",
+            "sources": [],
+        })
+
+    information = []
+    sources = []
+
+    for result in results:
+        metadata = result["metadata"]
+
+        information.append(result["text"])
+
+        sources.append({
             "title": metadata.get("title", metadata["document"]),
             "document": metadata["document"],
             "url": metadata.get("url"),
             "source": metadata.get("source", "local"),
-        }
-
-        return json.dumps({
-            "information": text,
-            "sources": [source],
         })
 
     return json.dumps({
-        "information": "No relevant information found.",
-        "sources": [],
+        "information": "\n\n".join(information),
+        "sources": sources,
     })
 
 tool_functions = {

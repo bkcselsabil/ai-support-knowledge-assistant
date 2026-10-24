@@ -99,7 +99,13 @@ def create_vector_database(chunk_data, collection_name="support_documents_v2",):
     import chromadb
 
     chroma_client = chromadb.Client()
-    collection = chroma_client.get_or_create_collection(name=collection_name)
+
+    try:
+        chroma_client.delete_collection(name=collection_name)
+    except Exception:
+        pass
+
+    collection = chroma_client.create_collection(name=collection_name)
     ids = [str(i) for i in range(len(chunk_data))]
     documents = [item["text"] for item in chunk_data]
 
@@ -108,6 +114,8 @@ def create_vector_database(chunk_data, collection_name="support_documents_v2",):
         item_metadata = {
             "document": item["document"],
             "category": item["category"],
+            "source": item.get("source", "local"),
+
         }
 
         for field in ["source", "title", "page_id", "space_key", "url"]:

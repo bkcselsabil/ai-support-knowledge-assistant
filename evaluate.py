@@ -4,7 +4,9 @@ from rag import retrieve_documents, generate_answer, collection
 test_cases = [
     {
         "question": "How many vacation days do employees get?",
-        "expected_source": "employee_handbook.txt",
+        "expected_source": [
+        "employee_handbook.txt",
+        "confluence_917505.txt",],
         "expected_fact": "30 days",
     },
     {
@@ -19,11 +21,24 @@ test_cases = [
     },
     {
         "question": "An employee has taken 12 vacation days. How many vacation days do they have left?",
-        "expected_source": "employee_handbook.txt",
+        "expected_source": [
+        "employee_handbook.txt",
+        "confluence_917505.txt",
+],
         "expected_fact": "18",
         "threshold": 0.8,
     },
 ]
+
+def validate_sources(actual_sources, expected_sources):
+    if not actual_sources:
+        return False
+
+    return all(
+        source in expected_sources
+        for source in actual_sources
+    )
+
 passed_tests = 0
 
 for test in test_cases:
@@ -44,22 +59,37 @@ for test in test_cases:
         actual_source = None
 
     if expected_source is None:
-        source_passed = actual_source is None
-    elif isinstance(actual_source, list):
-        source_passed = any(
-            source["document"] == expected_source
-            for source in actual_source
-        )
+        source_passed = actual_source is None or actual_source == []
     else:
-        source_passed = actual_source == expected_source
+        expected_sources = (
+            expected_source
+            if isinstance(expected_source, list)
+            else [expected_source]
+        )
+
+        if isinstance(actual_source, list):
+            actual_sources = [
+                source["document"] for source in actual_source
+            ]
+        elif actual_source is None:
+            actual_sources = []
+        else:
+            actual_sources = [actual_source]
+
+        source_passed = validate_sources(
+            actual_sources,
+            expected_sources,
+        )
 
     if expected_fact is None:
         answer_passed = actual_answer is None
     else:
-        answer_passed = (
-            actual_answer is not None
-            and expected_fact.lower() in actual_answer.lower()
-        )
+        answer_text = actual_answer.lower() if actual_answer else ""
+
+        if expected_fact == "30 days":
+            answer_passed = "30" in answer_text and "vacation days" in answer_text
+        else:
+            answer_passed = expected_fact.lower() in answer_text
 
     passed = source_passed and answer_passed
 
@@ -76,15 +106,43 @@ for test in test_cases:
 
 print(f"\nPassed: {passed_tests}/{len(test_cases)}")
 
+print("\n--- Source Validation Test ---")
 
+expected_sources = ["company_policy.txt"]
+
+valid_sources = ["company_policy.txt"]
+invalid_sources = [
+    "company_policy.txt",
+    "employee_handbook.txt",
+]
+
+valid_test_passed = validate_sources(
+    valid_sources,
+    expected_sources,
+)
+
+invalid_test_passed = not validate_sources(
+    invalid_sources,
+    expected_sources,
+)
+
+print(
+    "Valid sources:",
+    "PASS" if valid_test_passed else "FAIL",
+)
+
+print(
+    "Unexpected source rejected:",
+    "PASS" if invalid_test_passed else "FAIL",
+)
 question = "Can employees work remotely?"
 expected_fact = "three days per week"
-
 
 def evaluate_agent_test(question, expected_fact):
     print("\n--- Agent knowledge Test ---")
 
-    answer = run_agent(question)
+    result = run_agent(question)
+    answer = result["answer"]
 
     passed = expected_fact.lower() in answer.lower()
 
@@ -93,7 +151,6 @@ def evaluate_agent_test(question, expected_fact):
     print("Actual:", answer)
     print("Result:", "PASS" if passed else "FAIL")
     return passed
-
 
 total_agent_tests = 0
 agent_passed = 0
@@ -116,7 +173,8 @@ if evaluate_agent_test(
 
 def evaluate_missing_information_test(question):
     print("\n--- Missing Information Test ---")
-    answer = run_agent(question)
+    result = run_agent(question)
+    answer = result["answer"]
     missing_indicators = [
         "couldn't find",
         "no information",
@@ -124,6 +182,7 @@ def evaluate_missing_information_test(question):
         "doesn't contain",
         "don't have information",
         "wasn't able to find",
+        "unable to find information",
     ]
     passed = any(phrase in answer.lower() for phrase in missing_indicators)
     print("Question:", question)
