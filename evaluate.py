@@ -5,8 +5,9 @@ test_cases = [
     {
         "question": "How many vacation days do employees get?",
         "expected_source": [
-        "employee_handbook.txt",
-        "confluence_917505.txt",],
+            "employee_handbook.txt",
+            "confluence_917505.txt",
+        ],
         "expected_fact": "30 days",
     },
     {
@@ -22,22 +23,21 @@ test_cases = [
     {
         "question": "An employee has taken 12 vacation days. How many vacation days do they have left?",
         "expected_source": [
-        "employee_handbook.txt",
-        "confluence_917505.txt",
-],
+            "employee_handbook.txt",
+            "confluence_917505.txt",
+        ],
         "expected_fact": "18",
         "threshold": 0.8,
     },
 ]
 
+
 def validate_sources(actual_sources, expected_sources):
     if not actual_sources:
         return False
 
-    return all(
-        source in expected_sources
-        for source in actual_sources
-    )
+    return all(source in expected_sources for source in actual_sources)
+
 
 passed_tests = 0
 
@@ -62,15 +62,11 @@ for test in test_cases:
         source_passed = actual_source is None or actual_source == []
     else:
         expected_sources = (
-            expected_source
-            if isinstance(expected_source, list)
-            else [expected_source]
+            expected_source if isinstance(expected_source, list) else [expected_source]
         )
 
         if isinstance(actual_source, list):
-            actual_sources = [
-                source["document"] for source in actual_source
-            ]
+            actual_sources = [source["document"] for source in actual_source]
         elif actual_source is None:
             actual_sources = []
         else:
@@ -79,6 +75,15 @@ for test in test_cases:
         source_passed = validate_sources(
             actual_sources,
             expected_sources,
+        )
+        relevant_retrieved = len(set(actual_sources) & set(expected_sources))
+
+        recall = (
+            relevant_retrieved / len(set(expected_sources)) if expected_sources else 0.0
+        )
+
+        precision = (
+            relevant_retrieved / len(set(actual_sources)) if actual_sources else 0.0
         )
 
     if expected_fact is None:
@@ -103,7 +108,9 @@ for test in test_cases:
     print("Source:", "PASS" if source_passed else "FAIL")
     print("Answer:", "PASS" if answer_passed else "FAIL")
     print("Result:", "PASS" if passed else "FAIL")
-
+    if expected_source is not None:
+        print(f"Source Recall: {recall:.0%}")
+        print(f"Source Precision: {precision:.0%}")
 print(f"\nPassed: {passed_tests}/{len(test_cases)}")
 
 print("\n--- Source Validation Test ---")
@@ -138,6 +145,7 @@ print(
 question = "Can employees work remotely?"
 expected_fact = "three days per week"
 
+
 def evaluate_agent_test(question, expected_fact):
     print("\n--- Agent knowledge Test ---")
 
@@ -151,6 +159,7 @@ def evaluate_agent_test(question, expected_fact):
     print("Actual:", answer)
     print("Result:", "PASS" if passed else "FAIL")
     return passed
+
 
 total_agent_tests = 0
 agent_passed = 0
