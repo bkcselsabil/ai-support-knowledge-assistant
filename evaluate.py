@@ -1,36 +1,12 @@
 from agent import run_agent
 from rag import retrieve_documents, generate_answer, collection
+import json
+from pathlib import Path
 
-test_cases = [
-    {
-        "question": "How many vacation days do employees get?",
-        "expected_source": [
-            "employee_handbook.txt",
-            "confluence_917505.txt",
-        ],
-        "expected_fact": "30 days",
-    },
-    {
-        "question": "Can employees work remotely?",
-        "expected_source": "company_policy.txt",
-        "expected_fact": "three days per week",
-    },
-    {
-        "question": "What is the weather today?",
-        "expected_source": None,
-        "expected_fact": None,
-    },
-    {
-        "question": "An employee has taken 12 vacation days. How many vacation days do they have left?",
-        "expected_source": [
-            "employee_handbook.txt",
-            "confluence_917505.txt",
-        ],
-        "expected_fact": "18",
-        "threshold": 0.8,
-    },
-]
+dataset_path = Path(__file__).parent / "evaluation_dataset.json"
 
+with open(dataset_path, "r", encoding="utf-8") as file:
+    test_cases = json.load(file)
 
 def validate_sources(actual_sources, expected_sources):
     if not actual_sources:
