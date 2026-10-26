@@ -1,7 +1,11 @@
 import pytest
-from langgraph_test import app, llm_router, assess_context_node
-from types import SimpleNamespace
+import sys
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from examples.langgraph_test import app, llm_router, assess_context_node
+from types import SimpleNamespace
 
 def test_calculator_question():
     result = app.invoke({
@@ -27,7 +31,7 @@ def test_rag_question():
 @pytest.mark.parametrize("expected_route", ["calculator", "rag"])
 
 def test_router_returns_expected_route(mocker, expected_route):
-    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
 
     mock_llm.with_structured_output.return_value.invoke.return_value.route = expected_route
 
@@ -40,7 +44,7 @@ def test_router_returns_expected_route(mocker, expected_route):
     assert result["route"] == expected_route
 
 def test_graph_routes_to_calculator(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
 
     router_response = SimpleNamespace(route="calculator")
 
@@ -67,8 +71,8 @@ def test_graph_routes_to_calculator(mocker):
 
 
 def test_graph_routes_to_rag(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
-    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     # Control the documents returned by retrieval
     mock_retrieve.return_value = [
@@ -96,8 +100,8 @@ def test_graph_routes_to_rag(mocker):
 
 
 def test_rag_returns_fallback_when_no_documents(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
-    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     mock_retrieve.return_value = []
     mock_llm.with_structured_output.return_value.invoke.return_value.route = "rag"
@@ -116,8 +120,8 @@ def test_rag_returns_fallback_when_no_documents(mocker):
 
 
 def test_rag_retries_with_higher_threshold(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
-    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     question = (
         "An employee has taken 12 vacation days. "
@@ -157,8 +161,8 @@ def test_rag_retries_with_higher_threshold(mocker):
 
 
 def test_graph_retrieves_context_then_calculates(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
-    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     # Simulate the router selecting the multi-step route,
     # followed by Claude extracting 30 - 12.
@@ -210,8 +214,8 @@ def test_graph_retrieves_context_then_calculates(mocker):
 
 
 def test_multi_step_returns_fallback_when_no_documents(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
-    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     router_response = SimpleNamespace(route="rag_then_calculate")
     calculation_response = SimpleNamespace(
@@ -245,8 +249,8 @@ def test_multi_step_returns_fallback_when_no_documents(mocker):
     assert mock_llm.with_structured_output.return_value.invoke.call_count == 1
 
 def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
-    mock_retrieve = mocker.patch("langgraph_test.retrieve_documents")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     router_response = SimpleNamespace(route="rag_then_calculate")
 
@@ -284,7 +288,7 @@ def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
     mock_llm.invoke.assert_not_called()
 
 def test_assess_context_returns_true_when_context_is_sufficient(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
 
     mock_llm.with_structured_output.return_value.invoke.return_value = (
         SimpleNamespace(
@@ -303,7 +307,7 @@ def test_assess_context_returns_true_when_context_is_sufficient(mocker):
     assert result["context_sufficient"] is True
 
 def test_assess_context_returns_false_when_context_is_insufficient(mocker):
-    mock_llm = mocker.patch("langgraph_test.llm")
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
 
     mock_llm.with_structured_output.return_value.invoke.return_value = (
         SimpleNamespace(

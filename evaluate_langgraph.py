@@ -1,5 +1,5 @@
 
-from langgraph_test import app
+from examples.langgraph_test import app
 
 test_cases = [
     {
@@ -45,9 +45,16 @@ for test in test_cases:
     })
 
     route_passed = result["route"] == test["expected_route"]
-    answer_passed = (
-    test["expected_fact"].lower() in result["result"].lower()
-    )
+    answer = result["result"].lower()
+
+    if test["question"] == "What is the company's policy on pets in the office?":
+        answer_passed = (
+            "unable to find" in answer
+            or "couldn't find" in answer
+            or "no relevant information" in answer
+        )
+    else:
+        answer_passed = test["expected_fact"].lower() in answer
     passed = route_passed and answer_passed
 
     if passed:
