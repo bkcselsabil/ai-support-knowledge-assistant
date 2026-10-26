@@ -135,7 +135,7 @@ def create_vector_database(chunk_data, collection_name="support_documents_v2",):
 
 
 def retrieve_documents(
-    collection, question, threshold=0.7, document_name=None, category=None
+    collection, question, threshold=0.8, document_name=None, category=None
 ):
     where_filter = {}
 
@@ -155,10 +155,11 @@ def retrieve_documents(
     documents = results["documents"][0]
     metadata = results["metadatas"][0]
 
-    # for document, distance, meta in zip(documents, distances, metadata):
-    #     print("Distance:", distance)
-    #     print("Document:", meta["document"])
-    #     print()
+    print(f"\nQuestion: {question}")
+
+    for distance, meta in zip(distances, metadata):
+        print(f"Distance: {distance:.4f} | Document: {meta['document']}")
+
     relevant_results = []
 
     for document, distance, meta in zip(documents, distances, metadata):

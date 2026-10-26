@@ -5,8 +5,7 @@
             "employee_handbook.txt",
             "confluence_917505.txt"
         ],
-        "expected_fact": "30 days"
-    },
+        "expected_fact": "30 days"    },
     {
         "question": "Can employees work remotely?",
         "expected_source": "company_policy.txt",

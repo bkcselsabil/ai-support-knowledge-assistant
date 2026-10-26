@@ -1,41 +1,147 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#f8fafc">
+    <title>AI Support Knowledge Assistant</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
-    <title>AI Support Knowledge Assistant</title>
 </head>
 <body>
-    <main class="chat-container">
-        <header class="chat-header">
-            <h1>AI Support Assistant</h1>
-            <p>Ask questions about company policies and documentation.</p>
-        </header>
-
-        <section id="chat-messages" aria-live="polite">
-            <div class="message assistant-message">
-                Hello! How can I help you today?
+    <div class="app-layout">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-icon" aria-hidden="true">✦</div>
+                <div>
+                    <h1>Knowledge AI</h1>
+                    <p>Support Assistant</p>
+                </div>
             </div>
-        </section>
 
-        <form id="chat-form">
-            <label for="question">Your question</label>
-            <input
-                type="text"
-                id="question"
-                name="question"
-                placeholder="Ask a question..."
-                required
-                maxlength="2000"
-                autocomplete="off"
-            >
-            <button type="submit">Send</button>
-        </form>
-    </main>
+            <button type="button" class="new-chat-button" id="new-chat-button">
+                <span aria-hidden="true">＋</span> New conversation
+            </button>
+
+            <div class="sidebar-section">
+                <p class="sidebar-label">YOUR ASSISTANT</p>
+                <div class="sidebar-item active">
+                    <span aria-hidden="true">◈</span>
+                    Company Knowledge
+                </div>
+                <div class="sidebar-item">
+                    <span aria-hidden="true">✓</span>
+                    Policy &amp; HR
+                </div>
+            </div>
+
+            <div class="sidebar-footer">
+                <span class="status-dot" aria-hidden="true"></span>
+                Knowledge assistant
+                <span class="status-label">Ready</span>
+            </div>
+        </aside>
+
+        <main class="main-panel">
+            <header class="topbar">
+                <div>
+                    <p class="eyebrow">AI WORKSPACE</p>
+                    <h2>Company Knowledge</h2>
+                </div>
+                <div class="topbar-badge">
+                    <span class="status-dot" aria-hidden="true"></span>
+                    AI Assistant
+                </div>
+            </header>
+
+            <section class="chat-workspace" aria-label="Chat workspace">
+                <div class="welcome-section" id="welcome-section">
+                    <div class="welcome-icon" aria-hidden="true">✦</div>
+                    <p class="eyebrow">YOUR KNOWLEDGE ASSISTANT</p>
+                    <h2>How can I help you today?</h2>
+                    <p class="welcome-description">
+                        Ask a question about company policies, remote work,
+                        vacation days, or your documentation.
+                    </p>
+
+                    <div class="suggestion-grid" aria-label="Suggested questions">
+                        <button type="button" class="suggestion-card"
+                            data-question="How many vacation days do employees get?">
+                            <span class="suggestion-icon" aria-hidden="true">▤</span>
+                            <span>
+                                <strong>Vacation policy</strong>
+                                <small>How many vacation days do I get?</small>
+                            </span>
+                            <span class="suggestion-arrow" aria-hidden="true">↗</span>
+                        </button>
+
+                        <button type="button" class="suggestion-card"
+                            data-question="Can employees work remotely?">
+                            <span class="suggestion-icon" aria-hidden="true">⌂</span>
+                            <span>
+                                <strong>Remote work</strong>
+                                <small>What is our remote work policy?</small>
+                            </span>
+                            <span class="suggestion-arrow" aria-hidden="true">↗</span>
+                        </button>
+
+                        <button type="button" class="suggestion-card"
+                            data-question="What company policies are available?">
+                            <span class="suggestion-icon" aria-hidden="true">☷</span>
+                            <span>
+                                <strong>Company policies</strong>
+                                <small>Explore company documentation</small>
+                            </span>
+                            <span class="suggestion-arrow" aria-hidden="true">↗</span>
+                        </button>
+
+                        <button type="button" class="suggestion-card"
+                            data-question="How many vacation days remain after taking 12 days?">
+                            <span class="suggestion-icon" aria-hidden="true">◷</span>
+                            <span>
+                                <strong>Calculate leave</strong>
+                                <small>Find remaining vacation days</small>
+                            </span>
+                            <span class="suggestion-arrow" aria-hidden="true">↗</span>
+                        </button>
+                    </div>
+                </div>
+
+                <section id="chat-messages" aria-live="polite"
+                    aria-label="Conversation messages">
+                    <div class="message assistant-message">
+                        Hello! How can I help you today?
+                    </div>
+                </section>
+
+                <div class="composer-area">
+                    <form id="chat-form">
+                        <label class="visually-hidden" for="question">
+                            Your question
+                        </label>
+                        <input
+                            type="text"
+                            id="question"
+                            name="question"
+                            placeholder="Ask anything about company knowledge..."
+                            required
+                            maxlength="2000"
+                            autocomplete="off"
+                        >
+                        <button type="submit" aria-label="Send message">
+                            <span>Send</span>
+                            <span aria-hidden="true">↑</span>
+                        </button>
+                    </form>
+                    <p class="composer-note">
+                        AI can make mistakes. Verify important information with the original source.
+                    </p>
+                </div>
+            </section>
+        </main>
+    </div>
+
     <script src="script.js"></script>
 </body>
 </html>

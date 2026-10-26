@@ -1,8 +1,9 @@
 import os
-import json
+
 from anthropic import Anthropic
 from dotenv import load_dotenv
 from rag import retrieve_documents, collection
+import json
 
 load_dotenv()
 
@@ -34,7 +35,7 @@ def divide_numbers(a, b):
 
 
 def search_knowledge(question):
-    results = retrieve_documents(collection, question, threshold=0.7)
+    results = retrieve_documents(collection, question, threshold=0.8)
 
     if not results:
         return json.dumps({
