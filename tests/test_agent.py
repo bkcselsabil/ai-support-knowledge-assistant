@@ -191,3 +191,32 @@ def test_run_agent_executes_multiple_tool_calls(monkeypatch):
     assert tool_results[0]["content"] == "5"
     assert tool_results[1]["tool_use_id"] == "tool_2"
     assert tool_results[1]["content"] == "20"
+
+def test_execute_tool_returns_unknown_tool_message():
+    tool_use = SimpleNamespace(
+        name="unknown_tool",
+        input={},
+    )
+
+    result = agent.execute_tool(tool_use)
+
+    assert result == "Unknown tool"
+
+def test_execute_tool_handles_execution_error(monkeypatch):
+    def broken_tool(**kwargs):
+        raise ValueError("Something went wrong")
+
+    monkeypatch.setitem(
+        agent.tool_functions,
+        "broken_tool",
+        broken_tool,
+    )
+
+    tool_use = SimpleNamespace(
+        name="broken_tool",
+        input={},
+    )
+
+    result = agent.execute_tool(tool_use)
+
+    assert result == "Tool error: Something went wrong"
