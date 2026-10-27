@@ -142,3 +142,52 @@ def test_run_agent_executes_tool_and_returns_sources(mocker):
     assert len(result["sources"]) == 1
     assert result["sources"][0]["document"] == "employee_handbook.txt"
     assert mock_create.call_count == 2
+
+def test_run_agent_executes_multiple_tool_calls(monkeypatch):
+    first_tool = SimpleNamespace(
+        type="tool_use",
+        id="tool_1",
+        name="add_numbers",
+        input={"a": 2, "b": 3},
+    )
+
+    second_tool = SimpleNamespace(
+        type="tool_use",
+        id="tool_2",
+        name="multiply_numbers",
+        input={"a": 4, "b": 5},
+    )
+
+    tool_response = SimpleNamespace(
+        content=[first_tool, second_tool]
+    )
+
+    final_response = SimpleNamespace(
+        content=[
+            SimpleNamespace(
+                type="text",
+                text="The calculations are 5 and 20.",
+            )
+        ]
+    )
+
+    responses = iter([tool_response, final_response])
+
+    monkeypatch.setattr(
+        agent.client.messages,
+        "create",
+        lambda **kwargs: next(responses),
+    )
+
+    result = agent.run_agent("Calculate two values")
+
+    assert result["answer"] == "The calculations are 5 and 20."
+    assert len(result["messages"]) == 4
+
+    tool_results = result["messages"][2]["content"]
+
+    assert len(tool_results) == 2
+    assert tool_results[0]["tool_use_id"] == "tool_1"
+    assert tool_results[0]["content"] == "5"
+    assert tool_results[1]["tool_use_id"] == "tool_2"
+    assert tool_results[1]["content"] == "20"

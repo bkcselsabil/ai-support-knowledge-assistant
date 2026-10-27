@@ -172,38 +172,45 @@ Do not invent company policies or facts.
 
         messages.append({"role": "assistant", "content": response.content})
 
-        tool_use = None
-        for block in response.content:
-            if block.type == "tool_use":
-                tool_use = block
-                break
+        tool_uses = [
+            block
+            for block in response.content
+            if block.type == "tool_use"
+        ]
 
-        if tool_use is None:
+        if not tool_uses:
             return {
                 "answer": response.content[0].text,
                 "sources": sources,
                 "messages": messages,
             }
 
-        result = execute_tool(tool_use)
+        tool_results = []
 
-        if tool_use.name == "search_knowledge" and isinstance(result, str):
-            try:
-                tool_data = json.loads(result)
-                for source in tool_data.get("sources", []):
-                    if source not in sources:
-                        sources.append(source)
-            except json.JSONDecodeError:
-                pass
+        for tool_use in tool_uses:
+            result = execute_tool(tool_use)
 
-        tool_result = {
-            "type": "tool_result",
-            "tool_use_id": tool_use.id,
-            "content": str(result),
-        }
-        messages.append({"role": "user", "content": [tool_result]})
+            if tool_use.name == "search_knowledge" and isinstance(result, str):
+                try:
+                    tool_data = json.loads(result)
 
+                    for source in tool_data.get("sources", []):
+                        if source not in sources:
+                            sources.append(source)
 
+                except json.JSONDecodeError:
+                    pass
+
+            tool_results.append({
+                "type": "tool_result",
+                "tool_use_id": tool_use.id,
+                "content": str(result),
+            })
+
+        messages.append({
+            "role": "user",
+            "content": tool_results,
+        })
 def main():
     question = input("You: ")
     result = run_agent(question)
