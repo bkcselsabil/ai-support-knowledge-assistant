@@ -1,7 +1,10 @@
 
+import uuid
+
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field
+
 from agent import run_agent
 
 app = FastAPI(
@@ -9,7 +12,7 @@ app = FastAPI(
     description="API for answering support questions using RAG and an AI agent.",
     version="0.1.0",
 )
-
+conversations = {}
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -23,7 +26,7 @@ app.add_middleware(
 
 class ChatRequest(BaseModel):
     question: str = Field(min_length=1, max_length=2000)
-
+    conversation_id: str | None = None
 
 
 class Source(BaseModel):
@@ -36,20 +39,24 @@ class Source(BaseModel):
 class ChatResponse(BaseModel):
     answer: str
     sources: list[Source] = []
-
+    conversation_id: str
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
 
 
-
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    result = run_agent(request.question)
+    conversation_id = request.conversation_id or str(uuid.uuid4())
 
+    history = conversations.get(conversation_id, [])
+
+    result = run_agent(request.question, history=history)
+
+    conversations[conversation_id] = result["messages"]
     return ChatResponse(
         answer=result["answer"],
         sources=result["sources"],
+        conversation_id=conversation_id,
     )
-

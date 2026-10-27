@@ -147,9 +147,9 @@ tools = [
     },
 ]
 
-
-def run_agent(question):
-    messages = [{"role": "user", "content": question}]
+def run_agent(question, history=None):
+    messages = history.copy() if history else []
+    messages.append({"role": "user", "content": question})
     sources = []
 
     while True:
@@ -182,6 +182,7 @@ Do not invent company policies or facts.
             return {
                 "answer": response.content[0].text,
                 "sources": sources,
+                "messages": messages,
             }
 
         result = execute_tool(tool_use)

@@ -1,4 +1,3 @@
-
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -19,11 +18,10 @@ def test_chat_rejects_empty_question():
     assert response.status_code == 422
 
 
-
 def test_chat_returns_agent_answer(monkeypatch):
     from app import main
 
-    def fake_run_agent(question):
+    def fake_run_agent(question, history=None):
         return {
             "answer": "Employees receive 30 vacation days.",
             "sources": [
@@ -33,6 +31,13 @@ def test_chat_returns_agent_answer(monkeypatch):
                     "url": None,
                     "source": "confluence",
                 }
+            ],
+            "messages": [
+                {"role": "user", "content": question},
+                {
+                    "role": "assistant",
+                    "content": "Employees receive 30 vacation days.",
+                },
             ],
         }
 
@@ -54,4 +59,5 @@ def test_chat_returns_agent_answer(monkeypatch):
                 "source": "confluence",
             }
         ],
+        "conversation_id": response.json()["conversation_id"],
     }

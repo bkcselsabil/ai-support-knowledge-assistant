@@ -6,6 +6,8 @@ const newChatButton = document.getElementById("new-chat-button");
 
 const API_URL = "http://127.0.0.1:8000/chat";
 
+let conversationId = null;
+
 const initialGreeting = `
     <div class="message assistant-message">
         Hello! How can I help you today?
@@ -60,7 +62,9 @@ chatForm.addEventListener("submit", async (event) => {
             headers: {
                 "Content-Type": "application/json"
             },
-            body: JSON.stringify({ question })
+            body: JSON.stringify({ question,
+                conversation_id: conversationId
+            })
         });
 
         if (!response.ok) {
@@ -68,6 +72,7 @@ chatForm.addEventListener("submit", async (event) => {
         }
 
         const data = await response.json();
+        conversationId = data.conversation_id;
 
         // Render the answer safely as Markdown
         loadingMessage.innerHTML = DOMPurify.sanitize(
@@ -128,6 +133,7 @@ document.querySelectorAll("[data-question]").forEach((suggestion) => {
 if (newChatButton) {
     newChatButton.addEventListener("click", () => {
         chatMessages.innerHTML = initialGreeting;
+        conversationId = null;
         chatMessages.classList.remove("has-messages");
 
         if (welcomeSection) {
