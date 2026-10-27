@@ -220,3 +220,42 @@ def test_execute_tool_handles_execution_error(monkeypatch):
     result = agent.execute_tool(tool_use)
 
     assert result == "Tool error: Something went wrong"
+
+def test_run_agent_recovers_after_tool_error(mocker):
+    mock_create = mocker.patch("agent.client.messages.create")
+
+    tool_use = SimpleNamespace(
+        type="tool_use",
+        id="tool_error_123",
+        name="add_numbers",
+        input={"a": 1, "b": 2},
+    )
+
+    first_response = SimpleNamespace(content=[tool_use])
+
+    second_response = SimpleNamespace(
+        content=[
+            SimpleNamespace(
+                type="text",
+                text="I couldn't complete the calculation because the tool failed.",
+            )
+        ]
+    )
+
+    mock_create.side_effect = [first_response, second_response]
+
+    mocker.patch(
+        "agent.execute_tool",
+        return_value="Tool error: Something went wrong",
+    )
+
+    result = agent.run_agent("Calculate 1 + 2")
+
+    assert result["answer"] == (
+        "I couldn't complete the calculation because the tool failed."
+    )
+    assert mock_create.call_count == 2
+
+    tool_results = result["messages"][2]["content"]
+    assert len(tool_results) == 1
+    assert tool_results[0]["content"] == "Tool error: Something went wrong"
