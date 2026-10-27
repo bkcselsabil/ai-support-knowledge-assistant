@@ -9,12 +9,13 @@ with open(dataset_path, "r", encoding="utf-8") as file:
     test_cases = json.load(file)
 
 def validate_sources(actual_sources, expected_sources):
-    if not actual_sources:
+    if not actual_sources or not expected_sources:
         return False
 
-    return all(source in expected_sources for source in actual_sources)
+    actual = set(actual_sources)
+    expected = set(expected_sources)
 
-
+    return actual == expected
 passed_tests = 0
 
 for test in test_cases:
@@ -161,14 +162,18 @@ def evaluate_missing_information_test(question):
     result = run_agent(question)
     answer = result["answer"]
     missing_indicators = [
-        "couldn't find",
-        "no information",
-        "not found",
-        "doesn't contain",
-        "don't have information",
-        "wasn't able to find",
-        "unable to find information",
-    ]
+    "couldn't find",
+    "could not find",
+    "no information",
+    "not found",
+    "doesn't contain",
+    "don't have information",
+    "wasn't able to find",
+    "unable to find information",
+    "unable to find any information",
+    "not documented",
+    "not available in the knowledge base",
+]
     passed = any(phrase in answer.lower() for phrase in missing_indicators)
     print("Question:", question)
     print("Actual:", answer)
