@@ -259,3 +259,42 @@ def test_run_agent_recovers_after_tool_error(mocker):
     tool_results = result["messages"][2]["content"]
     assert len(tool_results) == 1
     assert tool_results[0]["content"] == "Tool error: Something went wrong"
+    
+def test_run_agent_handles_missing_knowledge(mocker):
+    mock_create = mocker.patch("agent.client.messages.create")
+
+    tool_use = SimpleNamespace(
+        type="tool_use",
+        id="tool_missing_123",
+        name="search_knowledge",
+        input={"question": "What is the company's relocation allowance?"},
+    )
+
+    first_response = SimpleNamespace(content=[tool_use])
+
+    final_response = SimpleNamespace(
+        content=[
+            SimpleNamespace(
+                type="text",
+                text="I couldn't find information about the relocation allowance in the company knowledge base.",
+            )
+        ]
+    )
+
+    mock_create.side_effect = [first_response, final_response]
+
+    mocker.patch(
+        "agent.execute_tool",
+        return_value=json.dumps({
+            "information": "No relevant information found.",
+            "sources": [],
+        }),
+    )
+
+    result = agent.run_agent(
+        "What is the company's relocation allowance?"
+    )
+
+    assert "couldn't find information" in result["answer"].lower()
+    assert result["sources"] == []
+    assert mock_create.call_count == 2
