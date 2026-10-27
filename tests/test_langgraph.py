@@ -324,3 +324,41 @@ def test_assess_context_returns_false_when_context_is_insufficient(mocker):
     })
 
     assert result["context_sufficient"] is False
+
+def test_rag_does_not_assume_part_time_entitlement(mocker):
+    mock_llm = mocker.patch("examples.langgraph_test.llm")
+    mock_retrieve = mocker.patch(
+        "examples.langgraph_test.retrieve_documents"
+    )
+
+    mock_retrieve.return_value = [
+        {
+            "text": "Full-time employees receive 30 days of annual vacation.",
+            "distance": 0.4,
+            "metadata": {"document": "employee_handbook.txt"},
+        }
+    ]
+
+    mock_llm.with_structured_output.return_value.invoke.return_value.route = "rag"
+
+    mock_llm.invoke.return_value.content = (
+        "The handbook specifies 30 days for full-time employees, "
+        "but it does not specify the allowance for part-time employees. "
+        "Please contact HR to confirm the applicable entitlement."
+    )
+
+    result = app.invoke({
+        "message": (
+            "I am a part-time employee. How many vacation days "
+            "am I entitled to according to the company handbook?"
+        ),
+        "result": "",
+        "route": "",
+    })
+
+    answer = result["result"].lower()
+
+    assert "30 days" in answer
+    assert "part-time" in answer
+    assert "hr" in answer
+    mock_retrieve.assert_called_once()
