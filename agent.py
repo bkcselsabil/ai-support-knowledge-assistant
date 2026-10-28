@@ -34,8 +34,14 @@ def divide_numbers(a, b):
 
 
 
-def search_knowledge(question):
-    results = retrieve_documents(collection, question, threshold=0.8)
+
+def search_knowledge(question, tenant_id="local-dev"):
+    results = retrieve_documents(
+        collection,
+        question,
+        threshold=0.8,
+        tenant_id=tenant_id,
+    )
 
     if not results:
         return json.dumps({
@@ -72,18 +78,23 @@ tool_functions = {
 }
 
 
-def execute_tool(tool_use):
+def execute_tool(tool_use, tenant_id="local-dev"):
     if tool_use.name not in tool_functions:
         return "Unknown tool"
 
     function = tool_functions[tool_use.name]
+    tool_input = dict(tool_use.input)
+
+    # The application supplies the tenant ID.
+    # Never trust the AI model to choose the company.
+    if tool_use.name == "search_knowledge":
+        tool_input["tenant_id"] = tenant_id
 
     try:
-        result = function(**tool_use.input)
+        result = function(**tool_input)
         return result
     except Exception as e:
         return f"Tool error: {e}"
-
 
 tools = [
     {
@@ -147,7 +158,7 @@ tools = [
     },
 ]
 
-def run_agent(question, history=None):
+def run_agent(question, history=None, tenant_id="local-dev"):
     messages = history.copy() if history else []
     messages.append({"role": "user", "content": question})
     sources = []
@@ -188,7 +199,7 @@ Do not invent company policies or facts.
         tool_results = []
 
         for tool_use in tool_uses:
-            result = execute_tool(tool_use)
+            result = execute_tool(tool_use, tenant_id=tenant_id)
 
             if tool_use.name == "search_knowledge" and isinstance(result, str):
                 try:
@@ -211,6 +222,7 @@ Do not invent company policies or facts.
             "role": "user",
             "content": tool_results,
         })
+
 def main():
     question = input("You: ")
     result = run_agent(question)

@@ -66,8 +66,11 @@ def chat(request: ChatRequest):
 
     history = conversations.get(conversation_id, [])
 
-    result = run_agent(request.question, history=history)
-
+    result = run_agent(
+        request.question,
+        history=history,
+        tenant_id="local-dev",
+    )
     conversations[conversation_id] = result["messages"]
     return ChatResponse(
         answer=result["answer"],

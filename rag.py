@@ -15,13 +15,20 @@ def initialize_rag():
     from confluence_ingestion import (
         fetch_all_confluence_pages,
         filter_confluence_pages,
+        convert_confluence_documents,
         prepare_confluence_chunks,
         combine_chunks,
     )
 
     confluence_pages = fetch_all_confluence_pages("ASKB")
     filtered_pages = filter_confluence_pages(confluence_pages)
-    confluence_chunks = prepare_confluence_chunks(filtered_pages)
+
+    source_documents = convert_confluence_documents(
+        filtered_pages,
+        tenant_id="local-dev",
+    )
+
+    confluence_chunks = prepare_confluence_chunks(source_documents)
 
     # Combine local and Confluence chunks
     combined_chunks = combine_chunks(local_chunks, confluence_chunks)
@@ -95,7 +102,10 @@ def prepare_chunks(documents):
 
 
 
-def create_vector_database(chunk_data, collection_name="support_documents_v2",):
+def create_vector_database(
+    chunk_data,
+    collection_name="support_documents_v2",
+):
     import chromadb
 
     chroma_client = chromadb.Client()
@@ -115,10 +125,10 @@ def create_vector_database(chunk_data, collection_name="support_documents_v2",):
             "document": item["document"],
             "category": item["category"],
             "source": item.get("source", "local"),
-
+            "tenant_id": item.get("tenant_id", "local-dev"),
         }
 
-        for field in ["source", "title", "page_id", "space_key", "url"]:
+        for field in ["title", "page_id", "space_key", "url"]:
             if item.get(field) is not None:
                 item_metadata[field] = item[field]
 
@@ -133,11 +143,16 @@ def create_vector_database(chunk_data, collection_name="support_documents_v2",):
     return collection
 
 
-
 def retrieve_documents(
-    collection, question, threshold=0.8, document_name=None, category=None
+    collection,
+    question,
+    threshold=0.8,
+    document_name=None,
+    category=None,
+    tenant_id="local-dev",
 ):
-    where_filter = {}
+    # Always filter by company.
+    where_filter = {"tenant_id": tenant_id}
 
     if document_name:
         where_filter["document"] = document_name
@@ -148,7 +163,7 @@ def retrieve_documents(
     results = collection.query(
         query_texts=[question],
         n_results=4,
-        where=where_filter if where_filter else None,
+        where=where_filter,
     )
 
     distances = results["distances"][0]
@@ -165,7 +180,11 @@ def retrieve_documents(
     for document, distance, meta in zip(documents, distances, metadata):
         if distance < threshold:
             relevant_results.append(
-                {"text": document, "distance": distance, "metadata": meta}
+                {
+                    "text": document,
+                    "distance": distance,
+                    "metadata": meta,
+                }
             )
 
     return relevant_results
@@ -206,18 +225,19 @@ def generate_answer(question, relevant_results):
 
         if source_key not in seen_sources:
             seen_sources.add(source_key)
-            sources.append({
-                "title": metadata.get("title", metadata["document"]),
-                "document": metadata["document"],
-                "url": metadata.get("url"),
-                "source": metadata.get("source", "local"),
-            })
+            sources.append(
+                {
+                    "title": metadata.get("title", metadata["document"]),
+                    "document": metadata["document"],
+                    "url": metadata.get("url"),
+                    "source": metadata.get("source", "local"),
+                }
+            )
 
     if all(source["source"] == "local" for source in sources):
         return response.content[0].text, sources[0]["document"]
 
     return response.content[0].text, sources
-
 
 
 def detect_category(question):
@@ -248,7 +268,8 @@ def detect_category(question):
     )
     return response.content[0].text.strip()
 
-def main ():
+
+def main():
     question = input("Ask a question:")
     category = detect_category(question)
     print("Detected category", category)

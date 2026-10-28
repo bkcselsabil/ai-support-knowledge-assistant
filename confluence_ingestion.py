@@ -3,6 +3,7 @@ import requests
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 from bs4 import BeautifulSoup
+from app.documents import SourceDocument
 
 load_dotenv()
 
@@ -71,34 +72,87 @@ def fetch_confluence_pages(page_ids):
     return documents
 
 
+
+def convert_confluence_documents(documents, tenant_id):
+    """Convert already-fetched Confluence pages into SourceDocument objects."""
+
+    source_documents = []
+
+    for document in documents:
+        page_id = str(document["page_id"])
+
+        source_documents.append(
+            SourceDocument(
+                tenant_id=tenant_id,
+                source=document.get("source", "confluence"),
+                document_id=page_id,
+                title=document.get("title", ""),
+                text=document.get("text", ""),
+                url=document.get("url"),
+                metadata={
+                    "filename": document.get(
+                        "filename", f"confluence_{page_id}.txt"
+                    ),
+                    "space_key": document.get("space_key", ""),
+                },
+            )
+        )
+
+    return source_documents
+
+
+
 def prepare_confluence_chunks(documents):
     from rag import chunk_document
 
     chunk_data = []
 
     for document in documents:
-        chunks = chunk_document(document["text"])
+        if isinstance(document, SourceDocument):
+            text = document.text
+            title = document.title
+            page_id = document.document_id
+            source = document.source
+            url = document.url
+            tenant_id = document.tenant_id
+            space_key = document.metadata.get("space_key", "")
+            filename = document.metadata.get(
+                "filename", f"confluence_{page_id}.txt"
+            )
+        else:
+            text = document["text"]
+            title = document["title"]
+            page_id = document["page_id"]
+            source = document["source"]
+            url = document["url"]
+            tenant_id = document.get("tenant_id", "local-dev")
+            space_key = document["space_key"]
+            filename = document.get(
+                "filename", f"confluence_{page_id}.txt"
+            )
+
+        chunks = chunk_document(text)
 
         for chunk in chunks:
             chunk_data.append(
                 {
                     "text": chunk,
-                    "document": f"confluence_{document['page_id']}.txt",
+                    "document": filename,
                     "category": (
                         "HR"
-                        if "vacation" in document["title"].lower()
+                        if "vacation" in title.lower()
                         else "Company Policy"
                     ),
-                    "source": document["source"],
-                    "title": document["title"],
-                    "page_id": document["page_id"],
-                    "space_key": document["space_key"],
-                    "url": document["url"],
+                    "source": source,
+                    "title": title,
+                    "page_id": page_id,
+                    "space_key": space_key,
+                    "url": url,
+                    "tenant_id": tenant_id,
                 }
             )
 
     return chunk_data
-
 
 def combine_chunks(local_chunks, confluence_chunks):
     combined_chunks = local_chunks + confluence_chunks
