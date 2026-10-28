@@ -4,7 +4,7 @@ const chatMessages = document.getElementById("chat-messages");
 const welcomeSection = document.getElementById("welcome-section");
 const newChatButton = document.getElementById("new-chat-button");
 
-const API_URL = "http://127.0.0.1:8000/chat";
+const API_URL = "/chat";
 
 let conversationId = null;
 
