@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -57,8 +57,9 @@ class ChatResponse(BaseModel):
 
 
 # Temporary in-memory conversation storage.
-# Conversation history will be lost when the server restarts.
-conversations: dict[str, list] = {}
+# Each conversation is associated with its owner.
+# All conversations are lost when the server restarts.
+conversations: dict[str, dict] = {}
 
 
 @app.get("/")
@@ -76,9 +77,25 @@ def chat(
     request: ChatRequest,
     user: dict = Depends(require_auth),
 ):
+    user_id = user.get("sub")
+
+    if not user_id:
+        raise HTTPException(
+            status_code=401,
+            detail="Authenticated user ID is missing.",
+        )
+
     conversation_id = request.conversation_id or str(uuid4())
 
-    history = conversations.get(conversation_id, [])
+    conversation = conversations.get(conversation_id)
+
+    if conversation is not None and conversation["user_id"] != user_id:
+        raise HTTPException(
+            status_code=403,
+            detail="You do not have access to this conversation.",
+        )
+
+    history = conversation["messages"] if conversation else []
 
     result = run_agent(
         request.question,
@@ -86,7 +103,10 @@ def chat(
         tenant_id="local-dev",
     )
 
-    conversations[conversation_id] = result["messages"]
+    conversations[conversation_id] = {
+        "user_id": user_id,
+        "messages": result["messages"],
+    }
 
     return ChatResponse(
         answer=result["answer"],

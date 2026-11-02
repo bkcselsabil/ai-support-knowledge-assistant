@@ -66,3 +66,94 @@ def test_chat_returns_agent_answer(monkeypatch):
     assert data["answer"] == "Employees receive 30 vacation days."
     assert data["sources"][0]["title"] == "Vacation Policy"
     assert data["conversation_id"]
+
+
+def test_user_can_continue_own_conversation(monkeypatch):
+    from app import main
+
+    conversation_id = "conversation-owned-by-test-user"
+
+    main.conversations[conversation_id] = {
+        "user_id": "test-user",
+        "messages": [
+            {"role": "user", "content": "Previous question"}
+        ],
+    }
+
+    def fake_run_agent(question, history=None, tenant_id=None):
+        assert history == [
+            {"role": "user", "content": "Previous question"}
+        ]
+
+        return {
+            "answer": "Continued successfully.",
+            "sources": [],
+            "messages": history + [
+                {"role": "user", "content": question},
+                {
+                    "role": "assistant",
+                    "content": "Continued successfully.",
+                },
+            ],
+        }
+
+    monkeypatch.setattr(main, "run_agent", fake_run_agent)
+
+    response = client.post(
+        "/chat",
+        json={
+            "question": "Continue my conversation",
+            "conversation_id": conversation_id,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["answer"] == "Continued successfully."
+
+
+def test_user_cannot_access_another_users_conversation():
+    from app import main
+
+    conversation_id = "conversation-owned-by-someone-else"
+
+    main.conversations[conversation_id] = {
+        "user_id": "another-user",
+        "messages": [
+            {"role": "user", "content": "Private conversation"}
+        ],
+    }
+
+    response = client.post(
+        "/chat",
+        json={
+            "question": "Show me the previous messages",
+            "conversation_id": conversation_id,
+        },
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "You do not have access to this conversation."
+    )
+
+
+def test_chat_rejects_user_without_id(monkeypatch):
+    from app import main
+
+    def override_auth_without_user_id():
+        return {"org_id": "local-dev"}
+
+    app.dependency_overrides[require_auth] = override_auth_without_user_id
+
+    try:
+        response = client.post(
+            "/chat",
+            json={"question": "Hello"},
+        )
+
+        assert response.status_code == 401
+        assert response.json()["detail"] == (
+            "Authenticated user ID is missing."
+        )
+    finally:
+        app.dependency_overrides[require_auth] = override_auth
