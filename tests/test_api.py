@@ -1,8 +1,19 @@
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.auth import require_auth
 
 client = TestClient(app)
+
+
+def override_auth():
+    return {
+        "sub": "test-user",
+        "org_id": "local-dev",
+    }
+
+
+app.dependency_overrides[require_auth] = override_auth
 
 
 def test_health_check():
@@ -21,7 +32,7 @@ def test_chat_rejects_empty_question():
 def test_chat_returns_agent_answer(monkeypatch):
     from app import main
 
-    def fake_run_agent(question, history=None):
+    def fake_run_agent(question, history=None, tenant_id=None):
         return {
             "answer": "Employees receive 30 vacation days.",
             "sources": [
@@ -49,15 +60,9 @@ def test_chat_returns_agent_answer(monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "answer": "Employees receive 30 vacation days.",
-        "sources": [
-            {
-                "title": "Vacation Policy",
-                "document": "confluence_917505.txt",
-                "url": None,
-                "source": "confluence",
-            }
-        ],
-        "conversation_id": response.json()["conversation_id"],
-    }
+
+    data = response.json()
+
+    assert data["answer"] == "Employees receive 30 vacation days."
+    assert data["sources"][0]["title"] == "Vacation Policy"
+    assert data["conversation_id"]

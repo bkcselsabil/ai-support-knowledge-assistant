@@ -59,6 +59,7 @@ def test_retrieve_documents_applies_metadata_filters(mocker):
         query_texts=["How many vacation days do employees get?"],
         n_results=4,
         where={
+            "tenant_id": "local-dev",
             "document": "employee_handbook.txt",
             "category": "HR",
         },
