@@ -172,9 +172,12 @@ def retrieve_documents(
 
     print(f"\nQuestion: {question}")
 
-    for distance, meta in zip(distances, metadata):
-        print(f"Distance: {distance:.4f} | Document: {meta['document']}")
-
+    # for distance, meta in zip(distances, metadata):
+    #     print(f"Distance: {distance:.4f} | Document: {meta['document']}")
+    for document, distance, meta in zip(documents, distances, metadata):
+        print(f"\nDistance: {distance:.4f}")
+        print(f"Document: {meta['document']}")
+        print(f"Content: {document[:500]}")
     relevant_results = []
 
     for document, distance, meta in zip(documents, distances, metadata):
