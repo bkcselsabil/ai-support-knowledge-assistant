@@ -600,3 +600,42 @@ button {
         transition: none !important;
     }
 }
+.auth-screen[hidden] {
+    display: none !important;
+}
+
+.auth-screen {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: #f8fafc;
+}
+
+.auth-card {
+    width: min(100%, 440px);
+    padding: 32px;
+    border-radius: 16px;
+    background: white;
+    box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
+}
+
+.auth-card h2 {
+    margin-top: 0;
+    color: #0f172a;
+}
+
+.auth-card p {
+    color: #64748b;
+}
+#app-layout[hidden],
+#auth-screen[hidden] {
+    display: none !important;
+}
+
+.clerk-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}

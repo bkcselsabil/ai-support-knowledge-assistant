@@ -7,3 +7,4 @@ langgraph
 fastapi
 uvicorn[standard]
 httpx
+clerk-backend-api
