@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -143,22 +144,84 @@ def create_vector_database(
     return collection
 
 
+def get_document_inventory(collection, tenant_id="local-dev"):
+    """
+    Return a unique list of documents available in the knowledge base.
+    """
+
+    results = collection.get(
+        where={"tenant_id": tenant_id},
+        include=["metadatas"],
+    )
+
+    documents = {}
+
+    for metadata in results["metadatas"]:
+        document_name = metadata.get("document")
+
+        if not document_name:
+            continue
+
+        if document_name not in documents:
+            documents[document_name] = {
+                "document": document_name,
+                "title": metadata.get("title", document_name),
+                "category": metadata.get("category"),
+                "source": metadata.get("source", "local"),
+                "url": metadata.get("url"),
+            }
+
+    return list(documents.values())
+def get_document_chunks(collection, document_name, tenant_id="local-dev"):
+    """
+    Retrieve all chunks belonging to a specific document.
+    """
+
+    results = collection.get(
+        where={
+            "$and": [
+                {"tenant_id": {"$eq": tenant_id}},
+                {"document": {"$eq": document_name}},
+            ]
+        },
+        include=["documents", "metadatas"],
+    )
+
+    chunks = []
+
+    for document, metadata in zip(
+        results["documents"],
+        results["metadatas"],
+    ):
+        chunks.append({
+            "text": document,
+            "metadata": metadata,
+        })
+
+    return chunks
+
 def retrieve_documents(
     collection,
     question,
-    threshold=0.8,
+    threshold=0.9,
     document_name=None,
     category=None,
     tenant_id="local-dev",
 ):
-    # Always filter by company.
-    where_filter = {"tenant_id": tenant_id}
+    conditions = [
+        {"tenant_id": {"$eq": tenant_id}}
+    ]
 
     if document_name:
-        where_filter["document"] = document_name
+        conditions.append({"document": {"$eq": document_name}})
 
     if category:
-        where_filter["category"] = category
+        conditions.append({"category": {"$eq": category}})
+
+    if len(conditions) == 1:
+        where_filter = conditions[0]
+    else:
+        where_filter = {"$and": conditions}
 
     results = collection.query(
         query_texts=[question],
@@ -172,27 +235,32 @@ def retrieve_documents(
 
     print(f"\nQuestion: {question}")
 
-    # for distance, meta in zip(distances, metadata):
-    #     print(f"Distance: {distance:.4f} | Document: {meta['document']}")
+    candidate_results = []
+
     for document, distance, meta in zip(documents, distances, metadata):
         print(f"\nDistance: {distance:.4f}")
         print(f"Document: {meta['document']}")
         print(f"Content: {document[:500]}")
-    relevant_results = []
 
-    for document, distance, meta in zip(documents, distances, metadata):
-        if distance < threshold:
-            relevant_results.append(
-                {
-                    "text": document,
-                    "distance": distance,
-                    "metadata": meta,
-                }
-            )
+        if distance <= threshold:
+            candidate_results.append({
+                "text": document,
+                "distance": distance,
+                "metadata": meta,
+            })
 
-    return relevant_results
+            return candidate_results
 
 
+def filter_relevant_documents(question, candidate_results):
+    """
+    Evaluate retrieved documents and keep only genuinely relevant ones.
+    """
+    if not candidate_results:
+        return []
+
+    # Relevance evaluation will be implemented here.
+    return candidate_results
 collection = initialize_rag()
 
 

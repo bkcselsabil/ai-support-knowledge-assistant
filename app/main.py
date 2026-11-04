@@ -103,13 +103,28 @@ def chat(
         tenant_id="local-dev",
     )
 
+    previous_sources = (
+    conversation.get("sources", [])
+    if conversation
+    else []
+)
+
+    current_sources = result["sources"]
+
+    all_sources = previous_sources.copy()
+
+    for source in current_sources:
+        if source not in all_sources:
+            all_sources.append(source)
+
     conversations[conversation_id] = {
         "user_id": user_id,
         "messages": result["messages"],
+        "sources": all_sources,
     }
-
+    print("Sources before API response:", all_sources)
     return ChatResponse(
         answer=result["answer"],
-        sources=result["sources"],
+        sources=all_sources,
         conversation_id=conversation_id,
     )
