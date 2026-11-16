@@ -22,3 +22,17 @@ htmlcov/
 
 # Temporary files
 tempCodeRunnerFile.py
+
+@"
+
+# Local ChromaDB storage
+chroma_data/
+
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Local logs
+*.log
+"@ | Add-Content .gitignore

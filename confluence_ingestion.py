@@ -125,7 +125,7 @@ def prepare_confluence_chunks(documents):
             page_id = document["page_id"]
             source = document["source"]
             url = document["url"]
-            tenant_id = document.get("tenant_id", "local-dev")
+            tenant_id = document["tenant_id"]
             space_key = document["space_key"]
             filename = document.get(
                 "filename", f"confluence_{page_id}.txt"
@@ -238,7 +238,12 @@ if __name__ == "__main__":
     documents = fetch_all_confluence_pages("ASKB")
     filtered_documents = filter_confluence_pages(documents)
 
-    chunks = prepare_confluence_chunks(filtered_documents)
+    source_documents = convert_confluence_documents(
+        filtered_documents,
+        tenant_id="local-dev",
+    )
+
+    chunks = prepare_confluence_chunks(source_documents)
 
     print("Pages discovered:", len(documents))
     print("Pages selected for indexing:", len(filtered_documents))

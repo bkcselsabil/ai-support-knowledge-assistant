@@ -26,7 +26,12 @@ def multiply_numbers(a: int, b: int) -> int:
 def search_knowledge(question: str) -> str:
     """Search the company knowledge base for relevant information."""
 
-    result = retrieve_documents(collection, question, threshold=0.8)
+    result = retrieve_documents(
+        collection,
+        question,
+        threshold=0.8,
+        tenant_id="local-dev",
+    )    
     # print("RAG RESULT:", result)
     if result:
         text = result[0]["text"]

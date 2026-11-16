@@ -45,6 +45,11 @@ def require_auth(request: Request) -> dict:
 
     expected_org_id = os.getenv("CLERK_TEST_ORGANIZATION_ID")
     actual_org_id = state.payload.get("org_id")
+    if not actual_org_id:
+        raise HTTPException(
+        status_code=403,
+        detail="An active organization is required.",
+    )
 
     if not expected_org_id:
         raise HTTPException(

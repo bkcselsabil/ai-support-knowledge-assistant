@@ -27,8 +27,8 @@ for test in test_cases:
         collection,
         question,
         threshold=test.get("threshold", 0.7),
+        tenant_id="local-dev",
     )
-
     if results:
         actual_answer, actual_source = generate_answer(question, results)
     else:
@@ -126,7 +126,10 @@ expected_fact = "three days per week"
 def evaluate_agent_test(question, expected_fact):
     print("\n--- Agent knowledge Test ---")
 
-    result = run_agent(question)
+    result = run_agent(
+        question,
+        tenant_id="local-dev",
+    )
     answer = result["answer"]
 
     passed = expected_fact.lower() in answer.lower()
@@ -159,7 +162,8 @@ if evaluate_agent_test(
 
 def evaluate_missing_information_test(question):
     print("\n--- Missing Information Test ---")
-    result = run_agent(question)
+    result = run_agent(question,
+    tenant_id="local-dev",)
     answer = result["answer"]
     missing_indicators = [
     "couldn't find",

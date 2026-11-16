@@ -30,7 +30,7 @@ def test_execute_unknown_tool():
         input={},
     )
 
-    assert agent.execute_tool(tool_use) == "Unknown tool"
+    assert agent.execute_tool(tool_use, tenant_id="local-dev",) == "Unknown tool"
 
 
 def test_execute_tool_returns_result():
@@ -39,7 +39,7 @@ def test_execute_tool_returns_result():
         input={"a": 4, "b": 6},
     )
 
-    assert agent.execute_tool(tool_use) == 10
+    assert agent.execute_tool(tool_use, tenant_id="local-dev",) == 10
 
 
 def test_execute_tool_handles_errors():
@@ -48,7 +48,7 @@ def test_execute_tool_handles_errors():
         input={"a": 4},
     )
 
-    result = agent.execute_tool(tool_use)
+    result = agent.execute_tool(tool_use, tenant_id="local-dev",)
 
     assert result.startswith("Tool error:")
 
@@ -68,7 +68,7 @@ def test_search_knowledge_returns_documents(mocker):
         ],
     )
 
-    result = json.loads(agent.search_knowledge("How many vacation days?"))
+    result = json.loads(agent.search_knowledge("How many vacation days?", tenant_id="local-dev",))
 
     assert "30 days" in result["information"]
     assert result["sources"][0]["document"] == "employee_handbook.txt"
@@ -77,7 +77,7 @@ def test_search_knowledge_returns_documents(mocker):
 def test_search_knowledge_returns_empty_result(mocker):
     mocker.patch("agent.retrieve_documents", return_value=[])
 
-    result = json.loads(agent.search_knowledge("Unknown policy"))
+    result = json.loads(agent.search_knowledge("Unknown policy", tenant_id="local-dev",))
 
     assert result["information"] == "No relevant information found."
     assert result["sources"] == []
@@ -91,7 +91,7 @@ def test_run_agent_returns_final_answer(mocker):
         )
     ]
 
-    result = agent.run_agent("Hello")
+    result = agent.run_agent("Hello", tenant_id="local-dev",)
 
     assert result["answer"] == "Hello! How can I help you?"
     assert result["sources"] == []
@@ -136,7 +136,7 @@ def test_run_agent_executes_tool_and_returns_sources(mocker):
         }),
     )
 
-    result = agent.run_agent("How many vacation days?")
+    result = agent.run_agent("How many vacation days?", tenant_id="local-dev",)
 
     assert result["answer"] == "Employees receive 30 vacation days."
     assert len(result["sources"]) == 1
@@ -179,7 +179,7 @@ def test_run_agent_executes_multiple_tool_calls(monkeypatch):
         lambda **kwargs: next(responses),
     )
 
-    result = agent.run_agent("Calculate two values")
+    result = agent.run_agent("Calculate two values", tenant_id="local-dev",)
 
     assert result["answer"] == "The calculations are 5 and 20."
     assert len(result["messages"]) == 4
@@ -198,7 +198,7 @@ def test_execute_tool_returns_unknown_tool_message():
         input={},
     )
 
-    result = agent.execute_tool(tool_use)
+    result = agent.execute_tool(tool_use, tenant_id="local-dev",)
 
     assert result == "Unknown tool"
 
@@ -217,7 +217,7 @@ def test_execute_tool_handles_execution_error(monkeypatch):
         input={},
     )
 
-    result = agent.execute_tool(tool_use)
+    result = agent.execute_tool(tool_use, tenant_id="local-dev",)
 
     assert result == "Tool error: Something went wrong"
 
@@ -249,7 +249,7 @@ def test_run_agent_recovers_after_tool_error(mocker):
         return_value="Tool error: Something went wrong",
     )
 
-    result = agent.run_agent("Calculate 1 + 2")
+    result = agent.run_agent("Calculate 1 + 2", tenant_id="local-dev",)
 
     assert result["answer"] == (
         "I couldn't complete the calculation because the tool failed."
@@ -292,7 +292,8 @@ def test_run_agent_handles_missing_knowledge(mocker):
     )
 
     result = agent.run_agent(
-        "What is the company's relocation allowance?"
+        "What is the company's relocation allowance?",
+    tenant_id="local-dev",
     )
 
     assert "couldn't find information" in result["answer"].lower()

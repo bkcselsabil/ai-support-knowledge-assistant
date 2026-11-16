@@ -22,7 +22,11 @@ def subtract_numbers(a,b):
 def divide_numbers(a,b):
     return a/b
 def search_knowledge(question):
-    result = retrieve_documents(collection, question)
+    result = retrieve_documents(
+    collection,
+    question,
+    tenant_id="local-dev",
+)
     if result:
         text = result[0]["text"]
         source = result[0]["metadata"]["document"]

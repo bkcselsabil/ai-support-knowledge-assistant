@@ -5,20 +5,27 @@ from confluence_ingestion import (
     filter_confluence_pages,
     prepare_confluence_chunks,
     combine_chunks,
+    convert_confluence_documents,
 )
 
 
 # Step 1: Load local documents
 local_documents = load_documents()
-local_chunks = prepare_chunks(local_documents)
-
+local_chunks = prepare_chunks(
+    local_documents,
+    tenant_id="local-dev",
+)
 # Step 2: Fetch and filter Confluence pages
 all_confluence_pages = fetch_all_confluence_pages("ASKB")
 filtered_pages = filter_confluence_pages(all_confluence_pages)
 
 # Step 3: Convert Confluence pages into chunks
-confluence_chunks = prepare_confluence_chunks(filtered_pages)
+source_documents = convert_confluence_documents(
+    filtered_pages,
+    tenant_id="local-dev",
+)
 
+confluence_chunks = prepare_confluence_chunks(source_documents)
 # Step 4: Combine both sources
 combined_chunks = combine_chunks(local_chunks, confluence_chunks)
 

@@ -25,10 +25,12 @@ def test_retrieve_documents_filters_by_threshold(mocker):
         mock_collection,
         "test question",
         threshold=0.8,
+        tenant_id="local-dev",
     )
 
-    assert len(results) == 1
+    assert len(results) == 2
     assert results[0]["text"] == "Close match"
+    assert results[1]["text"] == "Document at threshold"
 
 
 
@@ -52,18 +54,23 @@ def test_retrieve_documents_applies_metadata_filters(mocker):
         "How many vacation days do employees get?",
         document_name="employee_handbook.txt",
         category="HR",
+        tenant_id="local-dev",
     )
 
     # Verify that both filters were sent to ChromaDB
+
     mock_collection.query.assert_called_once_with(
         query_texts=["How many vacation days do employees get?"],
         n_results=4,
         where={
-            "tenant_id": "local-dev",
-            "document": "employee_handbook.txt",
-            "category": "HR",
+            "$and": [
+                {"tenant_id": {"$eq": "local-dev"}},
+                {"document": {"$eq": "employee_handbook.txt"}},
+                {"category": {"$eq": "HR"}},
+            ]
         },
     )
+
 
     assert len(results) == 1
     assert results[0]["metadata"]["category"] == "HR"
@@ -188,3 +195,144 @@ def test_detect_category_handles_other_categories(
     result = detect_category("Can employees work remotely?")
 
     assert result == expected_category
+
+def test_retrieval_filters_by_tenant():
+    from unittest.mock import MagicMock
+
+    from rag import retrieve_documents
+
+    collection = MagicMock()
+    collection.query.return_value = {
+        "documents": [[]],
+        "distances": [[]],
+        "metadatas": [[]],
+    }
+
+    results = retrieve_documents(
+        collection,
+        "What is the vacation policy?",
+        tenant_id="organization-A",
+    )
+
+    assert results == []
+
+    collection.query.assert_called_once_with(
+        query_texts=["What is the vacation policy?"],
+        n_results=4,
+        where={
+            "tenant_id": {
+                "$eq": "organization-A"
+            }
+        },
+    )
+    
+def test_chroma_cross_tenant_isolation(tmp_path):
+    import chromadb
+
+    client = chromadb.PersistentClient(
+        path=str(tmp_path / "chroma_test")
+    )
+
+    collection = client.create_collection(
+        name="tenant_isolation_test"
+    )
+
+    collection.add(
+        ids=["chunk-a", "chunk-b"],
+        documents=[
+            "Organization A has 30 vacation days.",
+            "Organization B has 45 vacation days.",
+        ],
+        metadatas=[
+            {"tenant_id": "organization-A"},
+            {"tenant_id": "organization-B"},
+        ],
+    )
+
+    results = collection.get(
+        where={"tenant_id": "organization-A"},
+        include=["documents", "metadatas"],
+    )
+
+    assert len(results["ids"]) == 1
+    assert results["documents"] == [
+        "Organization A has 30 vacation days."
+    ]
+    assert results["metadatas"][0]["tenant_id"] == "organization-A"
+    
+def test_retrieve_documents_enforces_tenant_filter():
+    from unittest.mock import Mock
+    from rag import retrieve_documents
+
+    mock_collection = Mock()
+
+    mock_collection.query.return_value = {
+        "distances": [[0.2]],
+        "documents": [["Organization A vacation policy"]],
+        "metadatas": [[{
+            "tenant_id": "organization-A",
+            "document": "handbook.txt",
+        }]],
+    }
+
+    results = retrieve_documents(
+        collection=mock_collection,
+        question="How many vacation days?",
+        tenant_id="organization-A",
+    )
+
+    mock_collection.query.assert_called_once_with(
+        query_texts=["How many vacation days?"],
+        n_results=4,
+        where={
+            "tenant_id": {"$eq": "organization-A"}
+        },
+    )
+
+    assert len(results) == 1
+    assert results[0]["metadata"]["tenant_id"] == "organization-A"
+    
+    
+def test_retrieve_documents_real_tenant_isolation(tmp_path):
+    import chromadb
+    from rag import retrieve_documents
+
+    client = chromadb.PersistentClient(
+        path=str(tmp_path / "chroma_retrieval")
+    )
+
+    collection = client.create_collection(
+        name="retrieval_isolation_test"
+    )
+
+    collection.add(
+        ids=["doc-a", "doc-b"],
+        documents=[
+            "Organization A employees receive 30 vacation days.",
+            "Organization B employees receive 45 vacation days.",
+        ],
+        metadatas=[
+            {
+                "tenant_id": "organization-A",
+                "document": "handbook.txt",
+                "category": "HR",
+            },
+            {
+                "tenant_id": "organization-B",
+                "document": "handbook.txt",
+                "category": "HR",
+            },
+        ],
+    )
+
+    results = retrieve_documents(
+        collection=collection,
+        question="How many vacation days do employees receive?",
+        tenant_id="organization-A",
+        threshold=2.0,
+    )
+
+    assert len(results) == 1
+    assert results[0]["metadata"]["tenant_id"] == "organization-A"
+    assert "30 vacation days" in results[0]["text"]
+    assert "45 vacation days" not in results[0]["text"]

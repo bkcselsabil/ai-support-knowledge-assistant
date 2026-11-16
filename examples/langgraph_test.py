@@ -238,7 +238,7 @@ def retrieve_context_node(state: State):
     collection,
     question,
     document_name=state.get("document_name"),
-    tenant_id=state.get("tenant_id", "local-dev"),)
+    tenant_id=state["tenant_id"],)
 
     # Retry with a more permissive threshold of 1.1
 
@@ -247,8 +247,9 @@ def retrieve_context_node(state: State):
             collection,
             question,
             threshold=1.1,
+            document_name=state.get("document_name"),
+            tenant_id=state["tenant_id"],
         )
-
     # Return empty context if both attempts fail
     if not documents:
         return {
@@ -352,7 +353,7 @@ def calculator_node(state: State):
     return {"result": str(result)}
 
 def list_documents_node(state: State):
-    tenant_id = state.get("tenant_id", "local-dev")
+    tenant_id = state["tenant_id"]
 
     inventory_json = list_knowledge_documents(
         tenant_id=tenant_id
@@ -389,7 +390,7 @@ def select_document_node(state: State):
 
     inventory = json.loads(
         list_knowledge_documents(
-            tenant_id=state.get("tenant_id", "local-dev")
+            tenant_id=state["tenant_id"]
         )
     )
 
@@ -454,7 +455,7 @@ def document_overview_node(state: State):
 
     overview_json = get_document_overview(
         document_name=document_name,
-        tenant_id=state.get("tenant_id", "local-dev"),
+        tenant_id=state["tenant_id"],
     )
 
     overview = json.loads(overview_json)

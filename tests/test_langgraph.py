@@ -12,6 +12,7 @@ def test_calculator_question():
         "message": "What is 50 minus 18?",
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "calculator"
@@ -21,7 +22,8 @@ def test_rag_question():
     result = app.invoke({
         "message": "How many vacation days do employees get?",
         "result": "",
-        "route" : "",
+        "route": "",
+        "tenant_id": "local-dev",
     })
     assert result["route"] == "rag"
     assert "30" in result["result"]
@@ -39,6 +41,7 @@ def test_router_returns_expected_route(mocker, expected_route):
         "message": "Test question",
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == expected_route
@@ -63,6 +66,7 @@ def test_graph_routes_to_calculator(mocker):
         "message": "What is 50 minus 18?",
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "calculator"
@@ -76,12 +80,27 @@ def test_graph_routes_to_rag(mocker):
 
     # Control the documents returned by retrieval
     mock_retrieve.return_value = [
-        {"text": "Employees receive 30 vacation days per year."}
+        {
+            "text": "Employees receive 30 vacation days per year.",
+            "distance": 0.4,
+            "metadata": {
+                "document": "employee_handbook.txt",
+                "category": "HR",
+                "source": "local",
+            },
+        }
     ]
 
     # Simulate Claude choosing the RAG route
-    mock_llm.with_structured_output.return_value.invoke.return_value.route = "rag"
+    from types import SimpleNamespace
 
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+        SimpleNamespace(route="rag"),
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
+    ]
     # Simulate Claude's answer using the retrieved context
     mock_llm.invoke.return_value.content = (
         "Employees receive 30 vacation days per year."
@@ -91,6 +110,7 @@ def test_graph_routes_to_rag(mocker):
         "message": "How many vacation days do employees get?",
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "rag"
@@ -104,12 +124,18 @@ def test_rag_returns_fallback_when_no_documents(mocker):
     mock_retrieve = mocker.patch("examples.langgraph_test.retrieve_documents")
 
     mock_retrieve.return_value = []
-    mock_llm.with_structured_output.return_value.invoke.return_value.route = "rag"
-
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+        SimpleNamespace(route="rag"),
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
+    ]
     result = app.invoke({
         "message": "What is the company's office in Antarctica?",
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "rag"
@@ -141,8 +167,13 @@ def test_rag_retries_with_higher_threshold(mocker):
     ]
 
     # Simulate the router choosing RAG.
-    mock_llm.with_structured_output.return_value.invoke.return_value.route = "rag"
-
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+        SimpleNamespace(route="rag"),
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
+    ]
     # Simulate the answer generated from the retrieved document.
     mock_llm.invoke.return_value.content = (
         "The employee has 18 vacation days remaining."
@@ -152,12 +183,13 @@ def test_rag_retries_with_higher_threshold(mocker):
         "message": question,
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "rag"
     assert "18" in result["result"]
     assert mock_retrieve.call_count == 2
-    assert mock_retrieve.call_args_list[1].kwargs["threshold"] == 0.8
+    assert mock_retrieve.call_args_list[1].kwargs["threshold"] == 1.1
 
 
 def test_graph_retrieves_context_then_calculates(mocker):
@@ -180,9 +212,13 @@ def test_graph_retrieves_context_then_calculates(mocker):
     )
 
     mock_llm.with_structured_output.return_value.invoke.side_effect = [
-    router_response,
-    assessment_response,
-    calculation_response,
+        router_response,
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
+        assessment_response,
+        calculation_response,
     ]
 
     # First retrieval fails; the retry finds the vacation policy.
@@ -204,13 +240,15 @@ def test_graph_retrieves_context_then_calculates(mocker):
         ),
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "rag_then_calculate"
     assert "30 days of annual vacation" in result["context"]
-    assert result["result"] == "18"
+    assert "calculated result is 18" in result["result"]
+    assert "does not confirm your personal entitlement" in result["result"]
     assert mock_retrieve.call_count == 2
-    assert mock_retrieve.call_args_list[1].kwargs["threshold"] == 0.8
+    assert mock_retrieve.call_args_list[1].kwargs["threshold"] == 1.1
 
 
 def test_multi_step_returns_fallback_when_no_documents(mocker):
@@ -226,6 +264,10 @@ def test_multi_step_returns_fallback_when_no_documents(mocker):
 
     mock_llm.with_structured_output.return_value.invoke.side_effect = [
         router_response,
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
         calculation_response,
     ]
 
@@ -239,6 +281,7 @@ def test_multi_step_returns_fallback_when_no_documents(mocker):
         ),
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["route"] == "rag_then_calculate"
@@ -246,7 +289,7 @@ def test_multi_step_returns_fallback_when_no_documents(mocker):
         "I couldn't find relevant information in the company documents."
     )
     assert mock_retrieve.call_count == 2
-    assert mock_llm.with_structured_output.return_value.invoke.call_count == 1
+    assert mock_llm.with_structured_output.return_value.invoke.call_count == 2
 
 def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
     mock_llm = mocker.patch("examples.langgraph_test.llm")
@@ -260,9 +303,13 @@ def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
 )
 
     mock_llm.with_structured_output.return_value.invoke.side_effect = [
-    router_response,
-    assessment_response,
-]
+        router_response,
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
+        assessment_response,
+    ]
 
     mock_retrieve.return_value = [
         {
@@ -279,12 +326,13 @@ def test_multi_step_does_not_calculate_when_context_lacks_required_fact(mocker):
         ),
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     assert result["result"] == (
         "I couldn't find relevant information in the company documents."
     )
-    assert mock_llm.with_structured_output.return_value.invoke.call_count == 2
+    assert mock_llm.with_structured_output.return_value.invoke.call_count == 3
     mock_llm.invoke.assert_not_called()
 
 def test_assess_context_returns_true_when_context_is_sufficient(mocker):
@@ -339,8 +387,13 @@ def test_rag_does_not_assume_part_time_entitlement(mocker):
         }
     ]
 
-    mock_llm.with_structured_output.return_value.invoke.return_value.route = "rag"
-
+    mock_llm.with_structured_output.return_value.invoke.side_effect = [
+        SimpleNamespace(route="rag"),
+        SimpleNamespace(
+            specific_document_requested=False,
+            document_name=None,
+        ),
+    ]
     mock_llm.invoke.return_value.content = (
         "The handbook specifies 30 days for full-time employees, "
         "but it does not specify the allowance for part-time employees. "
@@ -354,6 +407,7 @@ def test_rag_does_not_assume_part_time_entitlement(mocker):
         ),
         "result": "",
         "route": "",
+        "tenant_id": "local-dev",
     })
 
     answer = result["result"].lower()

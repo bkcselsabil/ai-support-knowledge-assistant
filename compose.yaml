@@ -1,0 +1,20 @@
+
+services:
+  api:
+    image: ai-support-assistant:dev
+    container_name: ai-support-api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env.docker
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: "5433"
+    volumes:
+      - chroma_model_cache:/root/.cache/chroma
+      - chroma_data:/app/chroma_data
+    restart: unless-stopped
+
+volumes:
+  chroma_model_cache:
+  chroma_data:

@@ -1,16 +1,18 @@
 import json
 import os
 from pathlib import Path
+from uuid import uuid4
 
 
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
 
-def initialize_rag():
+def initialize_rag(*, tenant_id: str):
     # Load and chunk local documents
     local_documents = load_documents()
-    local_chunks = prepare_chunks(local_documents)
+    local_chunks = prepare_chunks(local_documents,
+    tenant_id=tenant_id,)
 
     # Fetch and filter Confluence pages
     from confluence_ingestion import (
@@ -26,7 +28,7 @@ def initialize_rag():
 
     source_documents = convert_confluence_documents(
         filtered_pages,
-        tenant_id="local-dev",
+        tenant_id=tenant_id,
     )
 
     confluence_chunks = prepare_confluence_chunks(source_documents)
@@ -82,7 +84,7 @@ def chunk_document(text):
     return chunks
 
 
-def prepare_chunks(documents):
+def prepare_chunks(documents, *, tenant_id: str):
     chunk_data = []
 
     for document in documents:
@@ -96,9 +98,12 @@ def prepare_chunks(documents):
             else:
                 category = "Company Policy"
 
-            chunk_data.append(
-                {"text": chunk, "document": filename, "category": category}
-            )
+            chunk_data.append({
+                "text": chunk,
+                "document": filename,
+                "category": category,
+                "tenant_id": tenant_id,
+            })
     return chunk_data
 
 
@@ -109,15 +114,12 @@ def create_vector_database(
 ):
     import chromadb
 
-    chroma_client = chromadb.Client()
+    chroma_client = chromadb.PersistentClient(path="./chroma_data")
 
-    try:
-        chroma_client.delete_collection(name=collection_name)
-    except Exception:
-        pass
-
-    collection = chroma_client.create_collection(name=collection_name)
-    ids = [str(i) for i in range(len(chunk_data))]
+    collection = chroma_client.get_or_create_collection(
+    name=collection_name
+) 
+    ids = [str(uuid4()) for _ in chunk_data]
     documents = [item["text"] for item in chunk_data]
 
     metadata = []
@@ -126,8 +128,7 @@ def create_vector_database(
             "document": item["document"],
             "category": item["category"],
             "source": item.get("source", "local"),
-            "tenant_id": item.get("tenant_id", "local-dev"),
-        }
+            "tenant_id": item["tenant_id"],        }
 
         for field in ["title", "page_id", "space_key", "url"]:
             if item.get(field) is not None:
@@ -144,7 +145,7 @@ def create_vector_database(
     return collection
 
 
-def get_document_inventory(collection, tenant_id="local-dev"):
+def get_document_inventory(collection, *, tenant_id: str):
     """
     Return a unique list of documents available in the knowledge base.
     """
@@ -172,7 +173,12 @@ def get_document_inventory(collection, tenant_id="local-dev"):
             }
 
     return list(documents.values())
-def get_document_chunks(collection, document_name, tenant_id="local-dev"):
+def get_document_chunks(
+    collection,
+    document_name,
+    *,
+    tenant_id: str,
+):
     """
     Retrieve all chunks belonging to a specific document.
     """
@@ -206,7 +212,8 @@ def retrieve_documents(
     threshold=0.9,
     document_name=None,
     category=None,
-    tenant_id="local-dev",
+    *,
+    tenant_id: str,
 ):
     conditions = [
         {"tenant_id": {"$eq": tenant_id}}
@@ -249,8 +256,7 @@ def retrieve_documents(
                 "metadata": meta,
             })
 
-            return candidate_results
-
+    return candidate_results
 
 def filter_relevant_documents(question, candidate_results):
     """
@@ -261,8 +267,13 @@ def filter_relevant_documents(question, candidate_results):
 
     # Relevance evaluation will be implemented here.
     return candidate_results
-collection = initialize_rag()
+import chromadb
 
+chroma_client = chromadb.PersistentClient(path="./chroma_data")
+
+collection = chroma_client.get_or_create_collection(
+    name="support_documents_v2"
+)
 
 def generate_answer(question, relevant_results):
     context = "\n\n".join(result["text"] for result in relevant_results)

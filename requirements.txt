@@ -1,3 +1,4 @@
+langchain-anthropic
 anthropic
 python-dotenv
 chromadb
@@ -8,3 +9,6 @@ fastapi
 uvicorn[standard]
 httpx
 clerk-backend-api
+sqlalchemy
+psycopg[binary]
+alembic

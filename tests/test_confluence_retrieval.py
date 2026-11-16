@@ -7,6 +7,7 @@ results = retrieve_documents(
     collection,
     question,
     threshold=0.7,
+    tenant_id="local-dev",
 )
 
 print("Question:", question)

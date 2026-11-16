@@ -123,8 +123,7 @@ def divide_numbers(a, b):
 
 
 
-def search_knowledge(question, tenant_id="local-dev", document_name=None):
-
+def search_knowledge(question, tenant_id: str, document_name=None):
     # If a document is specified, verify that it belongs to this tenant.
     if document_name:
         inventory = get_document_inventory(
@@ -180,8 +179,7 @@ def search_knowledge(question, tenant_id="local-dev", document_name=None):
         "sources": sources,
     })
 
-def get_document_overview(document_name, tenant_id="local-dev"):
-
+def get_document_overview(document_name, tenant_id: str):
     # Verify that the document exists for this tenant.
     inventory = get_document_inventory(
         collection,
@@ -260,7 +258,7 @@ Provide a structured overview of this document.
         }],
     })
 
-def list_knowledge_documents(tenant_id="local-dev"):
+def list_knowledge_documents(tenant_id: str):
     """
     List all unique documents available in the company knowledge base.
     """
@@ -285,7 +283,7 @@ tool_functions = {
     "get_document_overview": get_document_overview,
 }
 
-def execute_tool(tool_use, tenant_id="local-dev"):
+def execute_tool(tool_use, tenant_id: str):
     if tool_use.name not in tool_functions:
         return "Unknown tool"
 
@@ -398,7 +396,7 @@ tools = [
 },
 ]
 
-def run_agent(question, history=None, tenant_id="local-dev"):
+def run_agent(question, history=None, *, tenant_id: str):
     messages = history.copy() if history else []
     messages.append({"role": "user", "content": question})
     sources = []
@@ -515,8 +513,10 @@ DOCUMENT IDENTIFICATION:
 
 def main():
     question = input("You: ")
-    result = run_agent(question)
-
+    result = run_agent(
+        question,
+        tenant_id="local-dev",
+    )
     print("Claude:", result["answer"])
 
     if result["sources"]:
