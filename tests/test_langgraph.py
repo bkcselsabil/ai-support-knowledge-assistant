@@ -7,7 +7,35 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from examples.langgraph_test import app, llm_router, assess_context_node
 from types import SimpleNamespace
 
-def test_calculator_question():
+def test_calculator_question(mocker):
+    from examples.langgraph_test import RouteDecision, Calculation
+
+    mock_llm = mocker.Mock()
+
+    def mock_structured_output(schema):
+        mock_chain = mocker.Mock()
+
+        if schema is RouteDecision:
+            mock_chain.invoke.return_value = RouteDecision(
+                route="calculator"
+            )
+
+        elif schema is Calculation:
+            mock_chain.invoke.return_value = Calculation(
+                number1=50,
+                operation="subtract",
+                number2=18,
+            )
+
+        return mock_chain
+
+    mock_llm.with_structured_output.side_effect = mock_structured_output
+
+    mocker.patch(
+        "examples.langgraph_test.llm",
+        mock_llm,
+    )
+
     result = app.invoke({
         "message": "What is 50 minus 18?",
         "result": "",
@@ -17,16 +45,69 @@ def test_calculator_question():
 
     assert result["route"] == "calculator"
     assert result["result"] == "32.0"
+    
 
-def test_rag_question():
+def test_rag_question(mocker):
+    from examples.langgraph_test import RouteDecision
+
+    # Mock Claude
+    mock_llm = mocker.Mock()
+
+    from examples.langgraph_test import DocumentSelection
+
+    def mock_structured_output(schema):
+        mock_chain = mocker.Mock()
+
+        if schema is RouteDecision:
+            mock_chain.invoke.return_value = RouteDecision(
+                route="rag"
+            )
+
+        elif schema is DocumentSelection:
+            mock_chain.invoke.return_value = DocumentSelection(
+                specific_document_requested=False,
+                document_name=None,
+            )
+
+        else:
+            raise AssertionError(f"Unexpected schema: {schema}")
+
+        return mock_chain
+
+    mock_llm.with_structured_output.side_effect = mock_structured_output
+
+    mock_llm.invoke.return_value = SimpleNamespace(
+        content="Full-time employees receive 30 vacation days."
+    )
+
+    mocker.patch("examples.langgraph_test.llm", mock_llm)
+
+    # Mock ChromaDB retrieval
+    mock_retrieve = mocker.patch(
+        "examples.langgraph_test.retrieve_documents",
+        return_value=[
+            {
+                "text": "Full-time employees receive 30 vacation days.",
+                "metadata": {
+                    "title": "Vacation Policy",
+                    "document": "vacation_policy.txt",
+                    "source": "local",
+                },
+            }
+        ],
+    )
+
     result = app.invoke({
         "message": "How many vacation days do employees get?",
         "result": "",
         "route": "",
         "tenant_id": "local-dev",
     })
+
     assert result["route"] == "rag"
     assert "30" in result["result"]
+    assert result["sources"][0]["title"] == "Vacation Policy"
+    mock_retrieve.assert_called_once()
 
 
 
