@@ -12,3 +12,4 @@ clerk-backend-api
 sqlalchemy
 psycopg[binary]
 alembic
+langchain
