@@ -55,6 +55,10 @@ def test_execute_tool_handles_errors():
 
 def test_search_knowledge_returns_documents(mocker):
     mocker.patch(
+    "agent.filter_relevant_documents",
+    side_effect=lambda question, candidate_results: candidate_results,
+)
+    mocker.patch(
         "agent.retrieve_documents",
         return_value=[
             {
